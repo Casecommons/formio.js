@@ -1,4 +1,3 @@
-/* eslint-disable no-trailing-spaces */
 import NativePromise from 'native-promise-only';
 import Formio from './Formio';
 import Webform from './Webform';
@@ -34,7 +33,7 @@ export default class PDF extends Webform {
   }
 
   attach(element) {
-    return super.attach(element).then(() => {
+    return super.attach(element).then(async() => {
       this.loadRefs(element, {
         submitButton: 'single',
         zoomIn: 'single',
@@ -54,7 +53,7 @@ export default class PDF extends Webform {
         seamless: true,
         class: 'formio-iframe'
       });
-      this.getSrc();
+      await this.getSrc();
 
       this.iframeElement.formioContainer = this.component.components;
       this.iframeElement.formioComponent = this;
