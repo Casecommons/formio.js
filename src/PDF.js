@@ -49,11 +49,11 @@ export default class PDF extends Webform {
 
       // iframes cannot be in the template so manually create it
       this.iframeElement = this.ce('iframe', {
-        src: this.getSrc(),
         id: `iframe-${this.id}`,
         seamless: true,
         class: 'formio-iframe'
       });
+      this.getSrc();
 
       this.iframeElement.formioContainer = this.component.components;
       this.iframeElement.formioComponent = this;
@@ -140,7 +140,22 @@ export default class PDF extends Webform {
       iframeSrc += `?${params.join('&')}`;
     }
 
-    return iframeSrc;
+    const { headers } = this.options;
+
+    fetch(iframeSrc, {
+      method: 'GET',
+      headers: {
+        credentials: 'include',
+        ...headers,
+      },
+    })
+    .then((response) => response.text())
+    .then((data) => {
+      this.iframeElement.contentDocument.write(data);
+    })
+    .catch((error) => {
+      console.log('error setting pdf iframe', error);
+  });
   }
 
   setForm(form) {
