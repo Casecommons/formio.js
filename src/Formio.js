@@ -48,7 +48,7 @@ class Formio {
     if (!(this instanceof Formio)) {
       return new Formio(path);
     }
-
+    console.log('Hi! Local formio :)');
     // Initialize our variables.
     this.base = '';
     this.projectsUrl = '';
