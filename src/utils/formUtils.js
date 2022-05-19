@@ -2,6 +2,7 @@ import get from 'lodash/get';
 import set from 'lodash/set';
 import has from 'lodash/has';
 import clone from 'lodash/clone';
+import cloneDeep from 'lodash/cloneDeep';
 import forOwn from 'lodash/forOwn';
 import isString from 'lodash/isString';
 import isNaN from 'lodash/isNaN';
@@ -52,7 +53,9 @@ export function eachComponent(components, fn, includeAll, path, parent, inRecurs
       delete components.noRecurse;
       return;
     }
-    components.noRecurse = true;
+    const componentsCopy = cloneDeep(components);
+    componentsCopy.noRecurse = true;
+    components = componentsCopy;
   }
   components.forEach((component) => {
     if (!component) {
