@@ -174,6 +174,7 @@
 import set from &apos;lodash/set&apos;;
 import has from &apos;lodash/has&apos;;
 import clone from &apos;lodash/clone&apos;;
+import cloneDeep from &apos;lodash/cloneDeep&apos;;
 import forOwn from &apos;lodash/forOwn&apos;;
 import isString from &apos;lodash/isString&apos;;
 import isNaN from &apos;lodash/isNaN&apos;;
@@ -224,7 +225,9 @@ export function eachComponent(components, fn, includeAll, path, parent, inRecurs
       delete components.noRecurse;
       return;
     }
-    components.noRecurse = true;
+    const componentsCopy = cloneDeep(components);
+    componentsCopy.noRecurse = true;
+    components = componentsCopy;
   }
   components.forEach((component) =&gt; {
     if (!component) {

@@ -1420,8 +1420,8 @@
       "expectCount": 17,
       "actualCount": 15,
       "undocumentLines": [
-        280,
-        316
+        283,
+        319
       ]
     },
     "src/utils/jsonlogic/operators.js": {
