@@ -985,16 +985,16 @@ export default class WebformBuilder extends Component {
 
     // Ensure there is at least a submit button.
     if (isShowSubmitButton) {
-      form.components.push({
-        type: 'button',
-        label: 'Submit',
-        key: 'submit',
-        size: 'md',
-        block: false,
-        action: 'submit',
-        disableOnInvalid: true,
-        theme: 'primary'
-      });
+      // form.components.push({
+      //   type: 'button',
+      //   label: 'Submit',
+      //   key: 'submit',
+      //   size: 'md',
+      //   block: false,
+      //   action: 'submit',
+      //   disableOnInvalid: true,
+      //   theme: 'primary'
+      // });
     }
 
     if (this.webform) {
