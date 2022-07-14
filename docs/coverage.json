@@ -196,6 +196,34 @@
         28
       ]
     },
+    "src/PDF.js": {
+      "expectCount": 25,
+      "actualCount": 3,
+      "undocumentLines": [
+        6,
+        7,
+        9,
+        12,
+        47,
+        48,
+        66,
+        71,
+        81,
+        95,
+        96,
+        97,
+        104,
+        197,
+        228,
+        256,
+        268,
+        283,
+        300,
+        308,
+        310,
+        334
+      ]
+    },
     "src/PDFBuilder.js": {
       "expectCount": 31,
       "actualCount": 0,
@@ -781,7 +809,37 @@
       "expectCount": 1,
       "actualCount": 0,
       "undocumentLines": [
-        6
+        7
+      ]
+    },
+    "src/components/signature/Signature.js": {
+      "expectCount": 24,
+      "actualCount": 0,
+      "undocumentLines": [
+        5,
+        6,
+        21,
+        32,
+        34,
+        35,
+        45,
+        49,
+        53,
+        60,
+        64,
+        68,
+        90,
+        110,
+        131,
+        150,
+        157,
+        161,
+        169,
+        179,
+        219,
+        228,
+        232,
+        236
       ]
     },
     "src/components/survey/Survey.form.js": {

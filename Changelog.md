@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - FIO-4942: fixed email submission: Custom PDF File Name is not respected
  - FIO-4997: extended check for execution on the server side for tabs component
  - FIO-4861: fixed restored revision node
- - FIO-4976: Fixes select resource data not showing on submission 
+ - FIO-4976: Fixes select resource data not showing on submission
  - FIO-5053: fixed an issue where select data with html5 widget type is not showing on view or pdf download after submission
  - FIO-5003: fixed that the radio with the value "false" is not displayed in different templates.
  - FIO-4970: reduced limit query parameter value for resource requests
@@ -153,7 +153,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - FIO-4571: Fixea an issue where tooltips do not appear on hover in the component setting modal
  - FIO-2645: Made clicking on the error of Container component redirect to it.
  - FIO-4595, FIO-4364: Fixes Select with URL keeping default value on pdf submission
- - FIO-4362: Fixed issues with checkbox set as radio type. 
+ - FIO-4362: Fixed issues with checkbox set as radio type.
  - FIO-4615: Fixing issues with calendar widget with save as text.
 
 ## 4.15.0-rc.1
@@ -174,7 +174,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - FIO-4443: Fixed signature not visible when generating a pdf.
  - FIO-4466: Fixed 'Save as reference' in Select resource
  - FIO-4496: fixed an issue where response from the resource does not display in the dropdown when more than one object is in the item template
- - FIO-4487: Protect the comp variable when iterating in wizards 
+ - FIO-4487: Protect the comp variable when iterating in wizards
  - FIO-4405: fixed an issue where form doesn't submit if hidden radio component has storage type as string
  - FIO-3715: fixed an issue where validation errors were shown with a submission in draft state if container component inside the form
  - FIO-4442: fixed an issue where date is showing the date prior to submitted date on view tab and data tab
@@ -1105,6 +1105,13 @@ nv@7.15.8, marked@3.0.7, mocha@9.1.2, core-js@3.18.3, sass@1.42.1, webpack@5.58.
  - FJS-1272: Fixes errors when add a placeholder char to a text mask
  - UIP-271: edge time component
  - Fixing issues where custom builder sidebars would crash and cause errors
+### 4.12.6
+#### Fixed
+ - FIO-1205: Using NativePromise instead of Promise
+
+### 4.12.5
+#### Fixed
+ - FIO-1160: Fixes errors when there is an undefined value in the inputs array
 
 ### 4.12.4
 #### Changed

@@ -115,7 +115,7 @@ export default class SignatureComponent extends Input {
       }
       if (this.refs.signatureImage) {
         this.refs.signatureImage.style.display = 'inherit';
-        this.refs.signatureImage.style.maxHeight = '100%';
+        this.refs.signatureImage.style.height = '150px';
       }
     }
   }
@@ -159,7 +159,7 @@ export default class SignatureComponent extends Input {
       this.signaturePad.clear();
 
       if (this.dataValue) {
-        this.setDataToSigaturePad();
+        this.signaturePad.fromDataURL(this.dataValue);
       }
 
       this.showCanvas(true);

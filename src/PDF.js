@@ -40,7 +40,9 @@ export default class PDF extends Webform {
     });
 
     // Trigger when this form is ready.
-    this.on('iframe-ready', () => this.iframeReadyResolve(), true);
+    this.on('iframe-ready', () => {
+      return this.iframeReadyResolve();
+    }, true);
   }
 
   render() {
@@ -86,7 +88,7 @@ export default class PDF extends Webform {
   }
 
   attach(element) {
-    return super.attach(element).then(() => {
+    return super.attach(element).then(async() => {
       this.loadRefs(element, {
         button: 'single',
         buttonMessageContainer: 'single',
@@ -105,11 +107,14 @@ export default class PDF extends Webform {
       });
 
       // iframes cannot be in the template so manually create it
+
+      const iframeSrc = this.getSrc();
+
       this.iframeElement = this.ce('iframe', {
-        src: this.getSrc(),
+        src: iframeSrc,
         id: `iframe-${this.id}`,
         seamless: true,
-        class: 'formio-iframe'
+        class: 'formio-iframe',
       });
 
       this.iframeElement.formioContainer = this.component.components;
@@ -118,6 +123,29 @@ export default class PDF extends Webform {
       // Append the iframe to the iframeContainer in the template
       this.empty(this.refs.iframeContainer);
       this.appendChild(this.refs.iframeContainer, this.iframeElement);
+
+      const { appEnv, headers } = this.options;
+      const acceptedEnvs = [];
+      if (acceptedEnvs.includes(appEnv)) {
+        try {
+          const bodyRequest = await fetch(iframeSrc, {
+            method: 'GET',
+            headers: {
+              credentials: 'include',
+              ...headers,
+            },
+          });
+          const htmlBody = await bodyRequest.text();
+          const iframeWindow = this.iframeElement.contentWindow || this.iframeElement.contentDocument.parentWindow;
+          const iframeDoc = iframeWindow.document;
+          iframeDoc.open();
+          iframeDoc.write(htmlBody);
+          iframeDoc.close();
+        }
+        catch (error) {
+          console.log('error setting pdf iframe', error);
+        }
+      }
 
       // Post the form to the iframe
       this.form.base = Formio.getBaseUrl();
@@ -203,7 +231,7 @@ export default class PDF extends Webform {
       iframeSrc += `?${params.join('&')}`;
     }
 
-    return iframeSrc;
+   return iframeSrc;
   }
 
   setForm(form, flags = {}) {

@@ -277,6 +277,7 @@ export default class SignatureComponent extends Input {
       }
       if (this.refs.signatureImage) {
         this.refs.signatureImage.style.display = &apos;inherit&apos;;
+        this.refs.signatureImage.style.height = &apos;150px&apos;;
       }
     }
   }
@@ -318,7 +319,7 @@ export default class SignatureComponent extends Input {
       this.signaturePad.clear();
 
       if (this.dataValue) {
-        this.setDataToSigaturePad();
+        this.signaturePad.fromDataURL(this.dataValue);
       }
     }
   }
