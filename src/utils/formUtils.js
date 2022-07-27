@@ -47,14 +47,15 @@ export function isLayoutComponent(component) {
 export function eachComponent(components, fn, includeAll, path, parent, inRecursion) {
   if (!components) return;
   path = path || '';
+  const allComponents = [...components];
   if (inRecursion) {
-    if (components.noRecurse) {
-      delete components.noRecurse;
+    if (allComponents.noRecurse) {
+      delete allComponents.noRecurse;
       return;
     }
-    components.noRecurse = true;
+    allComponents.noRecurse = true;
   }
-  components.forEach((component) => {
+  allComponents.forEach((component) => {
     if (!component) {
       return;
     }
@@ -121,8 +122,8 @@ export function eachComponent(components, fn, includeAll, path, parent, inRecurs
       }
     }
   });
-  if (components.noRecurse) {
-    delete components.noRecurse;
+  if (allComponents.noRecurse) {
+    delete allComponents.noRecurse;
   }
 }
 

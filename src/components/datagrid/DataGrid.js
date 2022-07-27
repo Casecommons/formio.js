@@ -539,7 +539,7 @@ export default class DataGridComponent extends NestedArrayComponent {
   createRowComponents(row, rowIndex) {
     const components = {};
     this.tabIndex = 0;
-    this.component.components.map((col, colIndex) => {
+    this.component.components.forEach((col, colIndex) => {
       const options = _.clone(this.options);
       options.name += `[${rowIndex}]`;
       options.row = `${rowIndex}-${colIndex}`;
@@ -547,8 +547,7 @@ export default class DataGridComponent extends NestedArrayComponent {
       let columnComponent;
 
       if (this.builderMode) {
-        col.id = col.id + rowIndex;
-        columnComponent = col;
+        columnComponent = _.assign(col, { id: col.id + rowIndex });
       }
       else {
         columnComponent = { ...col, id: (col.id + rowIndex) };

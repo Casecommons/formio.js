@@ -8,10 +8,6 @@ module.exports = {
       },
     ],
   ],
-  'assumptions': {
-    'setPublicClassFields': true,
-    'setClassMethods': true,
-  },
   plugins: [
     '@babel/plugin-proposal-class-properties',
     '@babel/plugin-proposal-export-default-from',

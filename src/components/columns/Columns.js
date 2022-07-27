@@ -69,7 +69,7 @@ export default class ColumnsComponent extends NestedComponent {
       if (!column.size) {
         column.size = 'md';
       }
-      column.currentWidth = column.width || 0;
+      column = _.assign(column, { currentWidth: column.width || 0 });
       // Ensure there is a components array.
       if (!Array.isArray(column.components)) {
         column.components = [];

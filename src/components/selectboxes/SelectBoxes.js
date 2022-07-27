@@ -144,7 +144,7 @@ export default class SelectBoxesComponent extends RadioComponent {
     else {
       _.each(this.refs.input, (input) => {
         if (_.isUndefined(value[input.value])) {
-          value[input.value] = false;
+          value = _.assign(value, { [input.value]: false });
         }
         input.checked = !!value[input.value];
       });

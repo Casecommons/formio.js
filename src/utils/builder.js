@@ -29,7 +29,7 @@ export default {
 
       const newKey = uniqueKey(formKeys, component.key);
       if (newKey !== component.key) {
-        component.key = newKey;
+        component = _.assign(component, { key: newKey });
         changed = true;
       }
 

@@ -72,7 +72,7 @@ export default class TabsComponent extends NestedComponent {
     _.each(this.component.components, (tab, index) => {
       this.tabs[index] = [];
       // Initialize empty tabs.
-      tab.components = tab.components || [];
+      tab = _.assign(tab, { components: tab.components || [] });
       _.each(tab.components, (comp) => {
         const component = this.createComponent(comp);
         component.tab = index;
