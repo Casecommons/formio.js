@@ -486,7 +486,7 @@ export default class Component extends Element {
   }
 
   mergeSchema(component = {}) {
-    return { ..._.defaultsDeep(component, this.defaultSchema) };
+    return _.defaultsDeep(component, this.defaultSchema);
   }
 
   // Allow componets to notify when ready.

@@ -881,8 +881,7 @@ export default class WebformBuilder extends Component {
       index = _.findIndex(source.formioContainer, { key: element.formioComponent.component.key });
       if (index !== -1) {
         // Grab and remove the component from the source container.
-        const formioContainer = [...source.formioContainer];
-        info = formioContainer.splice(
+        info = source.formioContainer.splice(
           _.findIndex(source.formioContainer, { key: element.formioComponent.component.key }), 1
         );
 
@@ -933,15 +932,11 @@ export default class WebformBuilder extends Component {
           index = sibling.getAttribute('data-position');
         }
         if (index !== -1) {
-          const formioContainer = [...target.formioContainer];
-          formioContainer.splice(index, 0, info);
-          target.formioContainer = formioContainer;
+          target.formioContainer.splice(index, 0, info);
         }
       }
       else {
-        const formioContainer = [...target.formioContainer];
-        formioContainer.push(info);
-        target.formioContainer = formioContainer;
+        target.formioContainer.push(info);
       }
       path = this.getComponentsPath(info, parent.component);
       index = _.findIndex(_.get(parent.schema, path), { key: info.key });
@@ -1586,9 +1581,7 @@ export default class WebformBuilder extends Component {
           if (parent.formioContainer && !isParentSaveChildMethod) {
             index = parent.formioContainer.indexOf(component.component);
             path = this.getComponentsPath(schema, parent.formioComponent.component);
-            const formioContainer = [...parent.formioContainer];
-            formioContainer.splice(index + 1, 0, schema);
-            parent.formioContainer = formioContainer;
+            parent.formioContainer.splice(index + 1, 0, schema);
           }
           else if (isParentSaveChildMethod) {
             parent.formioComponent.saveChildComponent(schema, false);

@@ -60,7 +60,7 @@ export default class DataMapComponent extends DataGridComponent {
       key: true,
       [this.valueKey]: true
     };
-    this.component.valueComponent = _.assign(this.component.valueComponent, { hideLabel: true });
+    this.component.valueComponent.hideLabel = true;
   }
 
   get defaultSchema() {

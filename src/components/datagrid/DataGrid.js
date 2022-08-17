@@ -547,7 +547,8 @@ export default class DataGridComponent extends NestedArrayComponent {
       let columnComponent;
 
       if (this.builderMode) {
-        columnComponent = _.assign(col, { id: col.id + rowIndex });
+        col.id = col.id + rowIndex;
+        columnComponent = col;
       }
       else {
         columnComponent = { ...col, id: (col.id + rowIndex) };
