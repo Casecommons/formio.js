@@ -47,7 +47,7 @@ export function isLayoutComponent(component) {
 export function eachComponent(components, fn, includeAll, path, parent, inRecursion) {
   if (!components) return;
   path = path || '';
-  const allComponents = components;
+  const allComponents = Object.create(components);
   if (inRecursion) {
     if (allComponents.noRecurse) {
       delete allComponents.noRecurse;
