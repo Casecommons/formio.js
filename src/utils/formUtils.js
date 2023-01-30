@@ -47,7 +47,7 @@ export function isLayoutComponent(component) {
 export function eachComponent(components, fn, includeAll, path, parent, inRecursion) {
   if (!components) return;
   path = path || '';
-  const allComponents = Object.create(components);
+  const allComponents = Object.assign(components, {});
   if (inRecursion) {
     if (allComponents.noRecurse) {
       delete allComponents.noRecurse;
@@ -169,7 +169,7 @@ export function getComponent(components, key, includeAll) {
       return true;
     }
   }, includeAll);
-  return result;
+  return Object.assign({}, result, {});
 }
 
 /**
