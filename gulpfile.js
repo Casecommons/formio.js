@@ -180,7 +180,7 @@ gulp.task('types-folder', () => gulp.src(['types/**/*.*']).pipe(gulp.dest('lib/t
 gulp.task('types', gulp.parallel('types-index', 'types-folder'));
 
 // Copy over the readme and changelog files
-gulp.task('patches', () => gulp.src(['patches/**/*.*']).pipe(gulp.dest('lib')));
+gulp.task('patches', () => gulp.src(['patches/**/*.*']).pipe(gulp.dest('lib/patches')));
 gulp.task('readme', () => gulp.src(['README.md', 'Changelog.md']).pipe(gulp.dest('lib')));
 
 // Watch for changes.
