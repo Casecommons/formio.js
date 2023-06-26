@@ -32,7 +32,7 @@
     "test:unit": "mocha 'lib/**/*.unit.js'",
     "test:updateRenders": "TZ=UTC node --require @babel/register --require jsdom-global/register test/updateRenders.js",
     "test:e2e": "NODE_OPTIONS=\"--max-old-space-size=4096\" karma start --verbose --single-run",
-    "postinstall": "cd $INIT_CWD && $(npm bin)/patch-package --patch-dir ./node_modules/formiojs/patches"
+    "postinstall": "cd $INIT_CWD && $(npm bin)/patch-package --patch-dir ./node_modules/formiojs/lib/patches"
   },
   "repository": {
     "type": "git",
