@@ -32,7 +32,7 @@
     "test:unit": "mocha 'lib/**/*.unit.js'",
     "test:updateRenders": "TZ=UTC node --require @babel/register --require jsdom-global/register test/updateRenders.js",
     "test:e2e": "NODE_OPTIONS=\"--max-old-space-size=4096\" karma start --verbose --single-run",
-    "postinstall": "patch-package"
+    "postinstall": "yarn patch-package"
   },
   "repository": {
     "type": "git",
@@ -82,6 +82,7 @@
     "moment": "^2.29.2",
     "moment-timezone": "^0.5.34",
     "native-promise-only": "^0.8.1",
+    "patch-package": "^7.0.0",
     "quill": "^2.0.0-dev.3",
     "signature_pad": "4.0.5",
     "string-hash": "^1.1.3",
