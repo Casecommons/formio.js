@@ -1,46 +1,42 @@
 {
-  "_args": [
-    [
-      "bootswatch@4.6.1",
-      "/Users/bisoyeatolagbe/projects/casebook/formio.js"
-    ]
-  ],
-  "_development": true,
-  "_from": "bootswatch@4.6.1",
-  "_id": "bootswatch@4.6.1",
+  "_from": "bootswatch@^4.6.0",
+  "_id": "bootswatch@4.6.2",
   "_inBundle": false,
-  "_integrity": "sha512-5vRhlIIvgZ2rH3QLHcVVa+Z+jNpn1/zEvGlJYkp4/g1LmsGY42S6IOpYyBu40RGjqqiYIjoeX/uWDdAAIYVG7A==",
+  "_integrity": "sha512-pHOS3d2yM/x9Y7/zwVzfGhGIIBdIa/rPwipghh756PaSNJS3ott/29d9uehakgze3pDvbH4FoQVjbho8wsLm6A==",
   "_location": "/bootswatch",
   "_phantomChildren": {},
   "_requested": {
-    "type": "version",
+    "type": "range",
     "registry": true,
-    "raw": "bootswatch@4.6.1",
+    "raw": "bootswatch@^4.6.0",
     "name": "bootswatch",
     "escapedName": "bootswatch",
-    "rawSpec": "4.6.1",
+    "rawSpec": "^4.6.0",
     "saveSpec": null,
-    "fetchSpec": "4.6.1"
+    "fetchSpec": "^4.6.0"
   },
   "_requiredBy": [
     "#DEV:/"
   ],
-  "_resolved": "https://registry.npmjs.org/bootswatch/-/bootswatch-4.6.1.tgz",
-  "_spec": "4.6.1",
-  "_where": "/Users/bisoyeatolagbe/projects/casebook/formio.js",
+  "_resolved": "https://casecommons.jfrog.io/casecommons/api/npm/npm/bootswatch/-/bootswatch-4.6.2.tgz",
+  "_shasum": "64720ddabec4fa154e7b760aaf7066d340174ea9",
+  "_spec": "bootswatch@^4.6.0",
+  "_where": "/Users/jacobcarpenter/Documents/Workspace/formio.js",
   "author": {
     "name": "Thomas Park"
   },
   "bugs": {
     "url": "https://github.com/thomaspark/bootswatch/issues"
   },
+  "bundleDependencies": false,
+  "deprecated": false,
   "description": "Bootswatch is a collection of themes for Bootstrap.",
   "devDependencies": {
     "@lodder/grunt-postcss": "^3.1.0",
-    "autoprefixer": "^10.4.0",
-    "bootstrap": "^4.6.1",
+    "autoprefixer": "^10.4.7",
+    "bootstrap": "^4.6.2",
     "font-awesome": "^4.7.0",
-    "grunt": "^1.4.1",
+    "grunt": "^1.5.3",
     "grunt-contrib-clean": "^2.0.0",
     "grunt-contrib-concat": "^2.0.0",
     "grunt-contrib-connect": "^3.0.0",
@@ -50,8 +46,8 @@
     "grunt-html": "^15.1.0",
     "grunt-sass": "^3.1.0",
     "jquery": "^3.5.1",
-    "node-sass": "^6.0.1",
-    "postcss": "^8.3.11",
+    "node-sass": "^7.0.1",
+    "postcss": "^8.4.14",
     "stylelint": "^13.13.1",
     "stylelint-config-twbs-bootstrap": "^2.2.4"
   },
@@ -73,5 +69,5 @@
     "stylelint": "stylelint \"**/*.scss\" --rd",
     "test": "npm run stylelint"
   },
-  "version": "4.6.1"
+  "version": "4.6.2"
 }

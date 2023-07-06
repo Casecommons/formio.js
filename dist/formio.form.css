@@ -1209,8 +1209,8 @@ div[data-oembed-url] {
   display: table-caption;
   caption-side: bottom;
   word-break: break-word;
-  color: hsl(0deg, 0%, 20%);
-  background-color: hsl(0deg, 0%, 97%);
+  color: hsl(0, 0%, 20%);
+  background-color: hsl(0, 0%, 97%);
   padding: 0.6em;
   font-size: 0.75em;
   outline-offset: -1px;
@@ -1293,13 +1293,13 @@ div[data-oembed-url] {
   margin-left: 0;
   margin-right: 0;
   font-style: italic;
-  border-left: solid 5px hsl(0deg, 0%, 80%);
+  border-left: solid 5px hsl(0, 0%, 80%);
 }
 
 /* ckeditor5-block-quote/theme/blockquote.css */
 .formio-component-content[dir=rtl] blockquote {
   border-left: 0;
-  border-right: solid 5px hsl(0deg, 0%, 80%);
+  border-right: solid 5px hsl(0, 0%, 80%);
 }
 
 .formio-component-content .text-tiny {
