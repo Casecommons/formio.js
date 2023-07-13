@@ -26,7 +26,7 @@ export default class SignatureComponent extends Input {
       group: 'advanced',
       icon: 'pencil',
       weight: 120,
-      documentation: '/userguide/forms/form-components#signature',
+      documentation: '/developers/integrations/esign/esign-integrations#signature-component',
       schema: SignatureComponent.schema()
     };
   }
@@ -35,6 +35,7 @@ export default class SignatureComponent extends Input {
     super.init();
     this.currentWidth = 0;
     this.scale = 1;
+    this.ratio = 1;
 
     if (!this.component.width) {
       this.component.width = '100%';
@@ -45,7 +46,7 @@ export default class SignatureComponent extends Input {
 
     if (
       this.component.keepOverlayRatio
-      && this.options.pdf
+      && this.options?.display === 'pdf'
       && this.component.overlay?.width
       && this.component.overlay?.height
     ) {
@@ -115,7 +116,7 @@ export default class SignatureComponent extends Input {
       }
       if (this.refs.signatureImage) {
         this.refs.signatureImage.style.display = 'inherit';
-        this.refs.signatureImage.style.height = '150px';
+        this.refs.signatureImage.style.maxHeight = '100%';
       }
     }
   }
@@ -145,8 +146,13 @@ export default class SignatureComponent extends Input {
     if (this.refs.padBody && (force || this.refs.padBody && this.refs.padBody.offsetWidth !== this.currentWidth)) {
       this.scale = force ? scale : this.scale;
       this.currentWidth = this.refs.padBody.offsetWidth;
-      this.refs.canvas.width = this.currentWidth * this.scale;
-      this.refs.canvas.height = this.refs.padBody.offsetHeight * this.scale;
+      const width = this.currentWidth * this.scale;
+      this.refs.canvas.width = width;
+      const height = this.ratio ? width / this.ratio : this.refs.padBody.offsetHeight * this.scale;
+      const maxHeight = this.refs.padBody.offsetHeight * this.scale;
+      this.refs.canvas.height = height > maxHeight ? maxHeight : height;
+      this.refs.canvas.style.maxWidth = `${this.currentWidth * this.scale}px`;
+      this.refs.canvas.style.maxHeight = `${maxHeight}px`;
       const ctx = this.refs.canvas.getContext('2d');
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale((1 / this.scale), (1 / this.scale));
@@ -155,7 +161,7 @@ export default class SignatureComponent extends Input {
       this.signaturePad.clear();
 
       if (this.dataValue) {
-        this.signaturePad.fromDataURL(this.dataValue);
+        this.setDataToSigaturePad();
       }
 
       this.showCanvas(true);
