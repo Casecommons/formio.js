@@ -3290,7 +3290,7 @@ export default class Component extends Element {
 
   detachLogic() {
     this.logic?.forEach(logic => {
-      if (logic.trigger.type === 'event') {
+      if (logic?.trigger?.type === 'event') {
         const event = this.interpolate(logic.trigger.event);
         this.off(event); // only applies to callbacks on this component
       }
