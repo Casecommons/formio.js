@@ -331,7 +331,7 @@ export function checkCondition(component, row, data, form, instance) {
  */
 export function checkTrigger(component, trigger, row, data, form, instance) {
   // If trigger is empty, don't fire it
-  if (!trigger.type || !trigger[trigger.type]) {
+  if (!trigger[trigger.type]) {
     return false;
   }
 
