@@ -2540,11 +2540,11 @@ export default class Component extends Element {
     const input = this.performInputMapping(this.refs.input[index]);
     const valueMaskInput = this.refs.valueMaskInput;
 
-    if (valueMaskInput?.mask) {
+    if (valueMaskInput?.mask && value) {
       valueMaskInput.mask.textMaskInputElement.update(value);
     }
 
-    if (input.mask) {
+    if (input.mask && value) {
       input.mask.textMaskInputElement.update(value);
     }
     else if (input.widget && input.widget.setValue) {
