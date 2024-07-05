@@ -2540,11 +2540,11 @@ export default class Component extends Element {
     const input = this.performInputMapping(this.refs.input[index]);
     const valueMaskInput = this.refs.valueMaskInput;
 
-    if (valueMaskInput?.mask) {
+    if (valueMaskInput?.mask && value) {
       valueMaskInput.mask.textMaskInputElement.update(value);
     }
 
-    if (input.mask) {
+    if (input.mask && value) {
       input.mask.textMaskInputElement.update(value);
     }
     else if (input.widget && input.widget.setValue) {
@@ -3290,7 +3290,7 @@ export default class Component extends Element {
 
   detachLogic() {
     this.logic?.forEach(logic => {
-      if (logic.trigger.type === 'event') {
+      if (logic?.trigger?.type === 'event') {
         const event = this.interpolate(logic.trigger.event);
         this.off(event); // only applies to callbacks on this component
       }
