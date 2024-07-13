@@ -2,7 +2,7 @@ import assert from 'power-assert';
 import _ from 'lodash';
 import _merge from 'lodash/merge';
 import Harness from '../../../test/harness';
-import Formio from './../../Formio';
+import { Formio } from './../../Formio';
 import NumberComponent from './Number';
 
 import {
@@ -11,7 +11,9 @@ import {
   comp3,
   comp4,
   comp5,
-  comp6
+  comp6,
+  comp7,
+  comp8
 } from './fixtures';
 
 describe('Number Component', () => {
@@ -208,12 +210,12 @@ describe('Number Component', () => {
   it('Should format numbers for USA locale', () => {
     /* eslint-disable max-statements */
     return Harness.testCreate(NumberComponent, comp2, { language: 'en-US' }).then((component) => {
-      Harness.testSetInput(component, null, '', '');
-      Harness.testSetInput(component, undefined, '', '');
-      Harness.testSetInput(component, '', '', '');
-      Harness.testSetInput(component, {}, '', '');
-      Harness.testSetInput(component, [], '', '');
-      Harness.testSetInput(component, [''], '', '');
+      Harness.testSetInput(component, null, null, '');
+      Harness.testSetInput(component, undefined, null, '');
+      Harness.testSetInput(component, '', null, '');
+      Harness.testSetInput(component, {}, null, '');
+      Harness.testSetInput(component, [], null, '');
+      Harness.testSetInput(component, [''], null, '');
       Harness.testSetInput(component, ['1'], 1, '1');
       Harness.testSetInput(component, 0, 0, '0');
       Harness.testSetInput(component, 1, 1, '1');
@@ -256,7 +258,7 @@ describe('Number Component', () => {
 
   it('Should format numbers for British locale', () => {
     return Harness.testCreate(NumberComponent, comp2, { language: 'en-GB' }).then((component) => {
-      Harness.testSetInput(component, null, '', '');
+      Harness.testSetInput(component, null, null, '');
       Harness.testSetInput(component, 0, 0, '0');
       Harness.testSetInput(component, 1, 1, '1');
       Harness.testSetInput(component, -1, -1, '-1');
@@ -278,7 +280,7 @@ describe('Number Component', () => {
   it('Should format numbers for French locale', () => {
     return Harness.testCreate(NumberComponent, comp2, { language: 'fr' }).then((component) => {
       // The spaces in these tests are a weird unicode space so be careful duplicating the tests.
-      Harness.testSetInput(component, null, '', '');
+      Harness.testSetInput(component, null, null, '');
       Harness.testSetInput(component, 0, 0, '0');
       Harness.testSetInput(component, 1, 1, '1');
       Harness.testSetInput(component, -1, -1, '-1');
@@ -299,7 +301,7 @@ describe('Number Component', () => {
 
   it('Should format numbers for German locale', () => {
     return Harness.testCreate(NumberComponent, comp2, { language: 'de' }).then((component) => {
-      Harness.testSetInput(component, null, '', '');
+      Harness.testSetInput(component, null, null, '');
       Harness.testSetInput(component, 0, 0, '0');
       Harness.testSetInput(component, 1, 1, '1');
       Harness.testSetInput(component, -1, -1, '-1');
@@ -381,11 +383,11 @@ describe('Number Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(!!component.error, false, 'Should not contain error');
+              assert.equal(component.errors.length, 0, 'Should not contain error');
             }
             else {
-              assert.equal(!!component.error, true, 'Should contain error');
-              assert.equal(component.error.message, error, 'Should contain error message');
+              assert(component.errors.length > 0, 'Should contain error');
+              assert.equal(component.errors[0].message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -411,6 +413,31 @@ describe('Number Component', () => {
         assert.equal(component.defaultValue, null);
         done();
       });
+    });
+  });
+
+  it('Should return value as string properly for multiple values', (done) => {
+    Harness.testCreate(NumberComponent, comp7).then((component) => {
+      component.refs.input = null;
+      assert.equal(component.getValueAsString([1, 2, 3, 4, 5]), '1, 2, 3, 4, 5');
+      done();
+    }).catch(done);
+  });
+
+  it('Should not remove decimal symbol and numbers after decimal symbol when submit is pressed', (done) => {
+    Formio.createForm(document.createElement('div'), comp8, {}).then((form) => {
+      const inputEvent = new Event('input');
+      const numberComponent = form.getComponent('number');
+      const buttonComponent = form.getComponent('submit');
+      numberComponent.refs.input[0].value = "123-456";
+      numberComponent.refs.input[0].dispatchEvent(inputEvent);
+      setTimeout(()=>{
+        buttonComponent.refs.button.click();
+        setTimeout(()=>{
+          assert.equal(numberComponent.refs.input[0].value, "123-456");
+          done();
+        },200);
+      },200);
     });
   });
 

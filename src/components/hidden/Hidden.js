@@ -15,7 +15,8 @@ export default class HiddenComponent extends Input {
       group: 'data',
       icon: 'user-secret',
       weight: 0,
-      documentation: '/userguide/forms/form-components#hidden',
+      documentation: '/userguide/form-building/data-components#hidden',
+      showPreview: false,
       schema: HiddenComponent.schema()
     };
   }
@@ -38,8 +39,7 @@ export default class HiddenComponent extends Input {
 
   /**
    * Check if a component is eligible for multiple validation
-   *
-   * @return {boolean}
+   * @returns {boolean} - If the component is eligible for multiple validation.
    */
   validateMultiple() {
     // Since "arrays" are able to be stored in hidden components, we need to turn off multiple validation.

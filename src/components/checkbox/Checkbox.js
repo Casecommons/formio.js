@@ -1,3 +1,5 @@
+import _ from 'lodash';
+import { componentValueTypes, getComponentSavedTypes } from '../../utils/utils';
 import Field from '../_classes/field/Field';
 
 export default class CheckBoxComponent extends Field {
@@ -19,21 +21,52 @@ export default class CheckBoxComponent extends Field {
       title: 'Checkbox',
       group: 'basic',
       icon: 'check-square',
-      documentation: '/userguide/forms/form-components#check-box',
+      documentation: '/userguide/form-building/form-components#check-box',
       weight: 50,
       schema: CheckBoxComponent.schema()
     };
   }
 
-  get defaultSchema() {
-    return CheckBoxComponent.schema();
+  static get serverConditionSettings() {
+    return CheckBoxComponent.conditionOperatorsSettings;
   }
 
-  get defaultValue() {
-    const { name } = this.component;
-    const defaultValue = super.defaultValue;
+  static get conditionOperatorsSettings() {
+    return {
+      ...super.conditionOperatorsSettings,
+      operators: ['isEqual'],
+      valueComponent() {
+        return {
+          valueType: 'boolean',
+          data: {
+            values: [
+                { label: 'Checked', value: 'true' },
+                { label: 'Not Checked', value: 'false' },
+              ]
+          },
+          type: 'select'
+        };
+      }
+    };
+  }
 
-    return name ? (this.component[name] || this.emptyValue) : (defaultValue || this.component.defaultValue || false).toString() === 'true';
+  static savedValueTypes(schema) {
+    schema = schema || {};
+    const types = getComponentSavedTypes(schema);
+
+    if (_.isArray(types)) {
+      return types;
+    }
+
+    if (schema.inputType === 'radio') {
+      return [componentValueTypes.string];
+    }
+
+    return [componentValueTypes.boolean];
+  }
+
+  get defaultSchema() {
+    return CheckBoxComponent.schema();
   }
 
   get labelClass() {
@@ -169,21 +202,18 @@ export default class CheckBoxComponent extends Field {
   }
 
   setValue(value, flags = {}) {
-    if (
-      this.setCheckedState(value) !== undefined ||
-      (!this.input && value !== undefined && (this.visible || this.conditionallyVisible() || !this.component.clearOnHide))
-    ) {
-      const changed = this.updateValue(value, flags);
-      if (this.isHtmlRenderMode() && flags && flags.fromSubmission && changed) {
-        this.redraw();
-      }
-      return changed;
-    }
-    return false;
+    this.setCheckedState(value);
+    return super.setValue(value, flags);
   }
 
   getValueAsString(value) {
-    return value ? 'Yes' : 'No';
+    const { name: componentName, value: componentValue } = this.component;
+    const hasValue = componentName ? _.isEqual(value, componentValue) : value;
+    if (_.isUndefined(value) && this.inDataTable) {
+      return '';
+    }
+
+    return this.t(hasValue ? 'Yes' : 'No');
   }
 
   updateValue(value, flags) {
@@ -192,6 +222,7 @@ export default class CheckBoxComponent extends Field {
       this.input.checked = 0;
       this.input.value = 0;
       this.dataValue = '';
+      this.updateOnChange(flags, true);
     }
 
     const changed = super.updateValue(value, flags);

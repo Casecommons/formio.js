@@ -2,6 +2,7 @@
 import Component from '../component/Component';
 import NestedComponent from '../nested/NestedComponent';
 import _ from 'lodash';
+import { componentValueTypes, getComponentSavedTypes } from '../../../utils/utils';
 
 export default class NestedDataComponent extends NestedComponent {
   hasChanged(newValue, oldValue) {
@@ -16,8 +17,20 @@ export default class NestedDataComponent extends NestedComponent {
     return !_.isEqual(newValue, oldValue);
   }
 
+  static savedValueTypes(schema) {
+    return getComponentSavedTypes(schema) || [componentValueTypes.object];
+  }
+
   get allowData() {
     return true;
+  }
+
+  get emptyValue() {
+    return {};
+  }
+
+  componentContext() {
+    return this.dataValue;
   }
 
   getValueAsString(value, options) {
@@ -67,7 +80,7 @@ export default class NestedDataComponent extends NestedComponent {
 
     const htmlTagRegExp = new RegExp('<(.*?)>');
 
-    this.components.forEach((component) => {
+    this.everyComponent((component) => {
       if (component.isInputComponent && component.visible && !component.skipInEmail) {
         const componentValue = component.getView(component.dataValue, options);
         result += (`
@@ -93,7 +106,7 @@ export default class NestedDataComponent extends NestedComponent {
     return result;
   }
 
-  everyComponent(fn, options) {
+  everyComponent(fn, options = {}) {
     if (options?.email) {
       if (options.fromRoot) {
         delete options.fromRoot;
@@ -108,8 +121,7 @@ export default class NestedDataComponent extends NestedComponent {
 
   /**
    * Get the value of this component.
-   *
-   * @returns {*}
+   * @returns {any} - Return the value of this component.
    */
   getValue() {
     return this.dataValue;
@@ -119,5 +131,24 @@ export default class NestedDataComponent extends NestedComponent {
     // Intentionally skip over nested component updateValue method to keep
     // recursive update from occurring with sub components.
     return Component.prototype.updateValue.call(this, value, flags);
+  }
+
+  setValue(value, flags = {}) {
+    let changed = false;
+
+    const hasValue = this.hasValue();
+    if (hasValue && _.isEmpty(this.dataValue)) {
+      flags.noValidate = true;
+    }
+
+    if (!value || !_.isObject(value) || !hasValue) {
+      changed = true;
+      this.dataValue = this.defaultValue;
+    }
+
+    changed = super.setValue(value, flags) || changed;
+
+    this.updateOnChange(flags, changed);
+    return changed;
   }
 }

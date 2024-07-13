@@ -1,6 +1,5 @@
 import _ from 'lodash';
 
-import ComponentEditAddons from './editForm/Component.edit.addons';
 import ComponentEditConditional from './editForm/Component.edit.conditional';
 import ComponentEditData from './editForm/Component.edit.data';
 import ComponentEditAPI from './editForm/Component.edit.api';
@@ -10,6 +9,11 @@ import ComponentEditValidation from './editForm/Component.edit.validation';
 import ComponentEditLayout from './editForm/Component.edit.layout';
 import EditFormUtils from './editForm/utils';
 
+/**
+ * The Edit Form function.
+ * @param {...any} extend - The components that extend the edit form.
+ * @returns {import('@formio/core').Component[]} - The edit form components.
+ */
 export default function(...extend) {
   const components = _.cloneDeep([
     {
@@ -57,12 +61,6 @@ export default function(...extend) {
           key: 'layout',
           weight: 60,
           components: ComponentEditLayout
-        },
-        {
-          label: 'Addons',
-          key: 'addons',
-          weight: 70,
-          components: ComponentEditAddons
         },
       ]
     }

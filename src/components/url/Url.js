@@ -15,7 +15,7 @@ export default class UrlComponent extends TextFieldComponent {
       title: 'Url',
       group: 'advanced',
       icon: 'link',
-      documentation: '/userguide/forms/form-components#url',
+      documentation: '/userguide/form-building/advanced-components#url',
       weight: 20,
       schema: UrlComponent.schema()
     };
@@ -23,7 +23,6 @@ export default class UrlComponent extends TextFieldComponent {
 
   constructor(component, options, data) {
     super(component, options, data);
-    this.validators.push('url');
   }
 
   get defaultSchema() {

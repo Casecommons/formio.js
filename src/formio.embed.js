@@ -1,2 +1,2 @@
-import { embed } from './Embed';
+import { embed } from './InlineEmbed';
 embed();

@@ -1,12 +1,13 @@
 import autocompleter from 'autocompleter';
 import _ from 'lodash';
 
-import { GlobalFormio as Formio } from '../../Formio';
+import { Formio } from '../../Formio';
 import { GoogleAddressProvider } from '../../providers/address/GoogleAddressProvider';
 
 import Field from '../_classes/field/Field';
 import NestedComponent from '../_classes/nested/NestedComponent';
 import ContainerComponent from '../container/Container';
+import { componentValueTypes, getComponentSavedTypes } from '../../utils/utils';
 
 export const AddressComponentMode = {
   Autocomplete: 'autocomplete',
@@ -82,12 +83,18 @@ export default class AddressComponent extends ContainerComponent {
     }, ...extend);
   }
 
+  static savedValueTypes(schema) {
+    schema = schema || {};
+
+    return getComponentSavedTypes(schema) || [componentValueTypes.object];
+  }
+
   static get builderInfo() {
     return {
       title: 'Address',
       group: 'advanced',
       icon: 'home',
-      documentation: '/userguide/forms/form-components#address',
+      documentation: '/userguide/form-building/advanced-components#address',
       weight: 35,
       schema: AddressComponent.schema(),
     };
@@ -541,6 +548,8 @@ export default class AddressComponent extends ContainerComponent {
           }
         });
       });
+
+      _.each(this.refs.searchInput || [], el => this.addFocusBlurEvents(el));
     }
 
     return result;

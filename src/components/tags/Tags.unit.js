@@ -10,8 +10,9 @@ import {
   comp3,
   comp4,
   comp5,
+  comp6,
 } from './fixtures';
-import Formio from '../../Formio';
+import { Formio } from '../../Formio';
 
 describe('Tags Component', function() {
   it('Should build a tags component', function() {
@@ -28,7 +29,9 @@ describe('Tags Component', function() {
   });
 
   it('Should not allow to add non-unique tags on blur', function(done) {
-    Harness.testCreate(TagsComponent, comp2).then((component) => {
+    const element = document.createElement('div');
+    Formio.createForm(element, { type: 'form', display: 'form', components: [comp2] }).then(form => {
+      const component = form.getComponent(['tags']);
       const values = ['test', 'test1', 'test'];
       Harness.setTagsValue(values, component);
       assert.equal(component.choices.getValue(true).length, 2);
@@ -37,12 +40,16 @@ describe('Tags Component', function() {
   });
 
   it('Should not exceed maxTags limit', function(done) {
-    Harness.testCreate(TagsComponent, comp2).then((component) => {
+    const element = document.createElement('div');
+    Formio.createForm(element, { type: 'form', display: 'form', components: [comp2] }).then(form => {
+      const component = form.getComponent(['tags']);
       const values = ['1', '2', '3', '4', '5'];
       Harness.setTagsValue(values, component);
 
-      assert.equal(component.choices.getValue(true).length, 4);
-      done();
+      setTimeout(() => {
+        assert.equal(component.choices.getValue(true).length, 4);
+        done();
+      }, 400);
     }).catch(done);
   });
 
@@ -58,10 +65,10 @@ describe('Tags Component', function() {
 
         setTimeout(() => {
           const modalPreview = component.element.querySelector('[ref="openModal"]');
-          assert.equal(modalPreview.textContent.trim(), 'test, test1, test2', 'All tags should be rendered inside Modal Preview');
+          assert.equal(modalPreview.textContent.trim(), 'test,test1,test2', 'All tags should be rendered inside Modal Preview');
           form.destroy();
           done();
-        }, 150);
+        }, 250);
       })
       .catch(done);
   });
@@ -129,6 +136,27 @@ describe('Tags Component', function() {
         document.innerHTML = '';
         done();
       }, 200);
+    }).catch(done);
+  });
+
+  it('OnBlur validation should work properly with Tags component', (done) => {
+    const element = document.createElement('div');
+
+    Formio.createForm(element, comp6).then(form => {
+      const tags = form.getComponent('tags');
+      // tags.setValue(['1', '2', '3']);
+      Harness.setTagsValue(['test', 'test1', 'test2'], tags);
+      tags.choices.input.element.focus();
+
+      setTimeout(() => {
+        assert.equal(tags.errors.length, 0, 'Tags should be valid while changing');
+        tags.choices.input.element.dispatchEvent(new Event('blur'));
+
+        setTimeout(() => {
+          assert.equal(tags.errors.length, 1, 'Should set error after Tags component was blurred');
+          done();
+        }, 500);
+      }, 350);
     }).catch(done);
   });
 });

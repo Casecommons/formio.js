@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { getFocusableElements } from '../../utils/utils';
+import { componentValueTypes, getComponentSavedTypes, getFocusableElements } from '../../utils/utils';
 
 import Component from '../_classes/component/Component';
 import Field from '../_classes/field/Field';
@@ -24,7 +24,8 @@ export default class ContainerComponent extends NestedDataComponent {
       title: 'Container',
       icon: 'folder-open',
       group: 'data',
-      documentation: '/userguide/forms/data-components#container',
+      documentation: '/userguide/form-building/data-components#container',
+      showPreview: false,
       weight: 10,
       schema: ContainerComponent.schema()
     };
@@ -33,6 +34,10 @@ export default class ContainerComponent extends NestedDataComponent {
   constructor(...args) {
     super(...args);
     this.type = 'container';
+  }
+
+  static savedValueTypes(schema) {
+    return  getComponentSavedTypes(schema) || [componentValueTypes.object];
   }
 
   addComponents(data, options) {
@@ -55,30 +60,14 @@ export default class ContainerComponent extends NestedDataComponent {
     return this.dataValue;
   }
 
-  setValue(value, flags = {}) {
-    let changed = false;
-    const hasValue = this.hasValue();
-    if (hasValue && _.isEmpty(this.dataValue)) {
-      flags.noValidate = true;
-    }
-    if (!value || !_.isObject(value) || !hasValue) {
-      changed = true;
-      this.dataValue = this.defaultValue;
-    }
-    changed = super.setValue(value, flags) || changed;
-    this.updateOnChange(flags, changed);
-    return changed;
-  }
-
   checkData(data, flags, row, components) {
     data = data || this.rootValue;
     flags = flags || {};
     row = row || this.data;
     components = components && _.isArray(components) ? components : this.getComponents();
 
-    return components.reduce((valid, comp) => {
-      return comp.checkData(data, flags, this.dataValue) && valid;
-    }, Component.prototype.checkData.call(this, data, flags, row));
+    Component.prototype.checkData.call(this, data, flags, row);
+    components.forEach((comp) => comp.checkData(data, flags, this.dataValue));
   }
 
   focus() {

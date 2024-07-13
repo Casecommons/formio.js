@@ -2,7 +2,7 @@ import assert from 'power-assert';
 import Harness from '../../../test/harness';
 import FileComponent from './File';
 import { comp1, comp2 } from './fixtures';
-import Formio from './../../Formio';
+import { Formio } from './../../Formio';
 import _ from 'lodash';
 
 describe('File Component', () => {
@@ -38,6 +38,27 @@ describe('File Component', () => {
       Harness.testElements(component, 'ul.list-group-striped li.list-group-item', 3);
       Harness.testElements(component, 'a.browse', 0);
       assert(component.checkValidity(component.getValue()), 'Item should be valid');
+    });
+  });
+
+  it('Should hide loader after loading process', () => {
+    return Harness.testCreate(FileComponent, comp1).then((component) => {
+      const parentNode = document.createElement('div');
+      const element = document.createElement('div');
+      parentNode.appendChild(element);
+      component.build(element);
+      Harness.testElements(component, 'div.loader-wrapper', 1);
+      component.setValue([
+        {
+          storage: 'base64',
+          name: 'IMG_5235-ce0abe18-5d3e-4ab4-84ca-b3e06684bc86.jpg',
+          url: 'data:image/jpg;base64,AAAAIGZ0eXBoZWljAAAAAG1pZjF',
+          size: 1159732,
+          type: 'image/jpeg',
+          originalName: 'IMG_5235.jpg',
+        }
+      ]);
+      Harness.testElements(component, 'div.loader-wrapper', 0);
     });
   });
 
@@ -174,5 +195,86 @@ describe('File Component', () => {
         }, 200);
       }, 200);
     }).catch(done);
+  });
+
+  it('Should abort the correct file when user clicks the file remove button', (done) => {
+    const cmp =  _.cloneDeep(comp1);
+    const abortedFiles = [];
+    cmp.multiple = true;
+    cmp.storage = 'url';
+
+    const options = {
+      fileService: {
+        uploadFile: function(storage, file, fileName, dir, progressCallback, url, options, fileKey, groupPermissions, groupId, uploadStartCallback, abortCallbackSetter) {
+          return new Promise((resolve, reject) => {
+            // complete upload after 1s.
+            setTimeout(() => {
+              progressCallback({ loaded: 1, total: 1 });
+            }, 10);
+
+            const timeout = setTimeout(() => {
+              const uploadResponse = {
+                name: fileName,
+                size: file.size,
+                type: 'application/pdf',
+                url: `fake/url/${fileName}`
+              };
+              resolve(uploadResponse);
+            }, 1000);
+
+            abortCallbackSetter(function() {
+              abortedFiles.push(file.name);
+              clearTimeout(timeout);
+              reject({
+                type: 'abort',
+              });
+            });
+          });
+        }
+      }
+    };
+
+    Harness.testCreate(FileComponent, cmp, options).then((component) => {
+      component.root = { everyComponent: () => {}, options: options, form: { submissionRevisions: false, components: [cmp] } };
+      const parentNode = document.createElement('div');
+      const element = document.createElement('div');
+      parentNode.appendChild(element);
+      component.build(element);
+
+      const content = [1];
+      const files = [new File(content, 'file.0'), new File([content], 'file.1'), new File([content], 'file.2')];
+
+      component.handleFilesToUpload(files);
+
+      setTimeout(function() {
+        // Table header and 3 rows for files
+        Harness.testElements(component, '.list-group-item', 4);
+        assert.equal(component.dataValue.length, 0);
+        assert.equal(component.filesToSync.filesToUpload.length, 3);
+        assert.equal(component.filesToSync.filesToUpload[1].status, 'progress');
+        assert.equal(component.filesToSync.filesToDelete.length, 0);
+
+        const abortIcon = component.element.querySelectorAll(`#abort-${component.filesToSync.filesToUpload[1].id}`)[0];
+        assert.notEqual(abortIcon, null);
+        abortIcon.click();
+
+        setTimeout(() => {
+          assert.notEqual(component !== null);
+          assert(abortedFiles[0] === 'file.1' && abortedFiles.length === 1);
+          assert.equal(component.filesToSync.filesToUpload[1].status, 'error');
+          assert.equal(component.filesToSync.filesToUpload[1].message, 'Request was aborted');
+
+          Harness.testElements(component, '.list-group-item', 4);
+          component.root = null;
+          done();
+        }, 20);
+      }, 100);
+    });
+  });
+  it('should not error on upload when noDefaults is set to true', () => {
+    return Formio.createForm(document.createElement('div'), comp2,{ noDefaults: true }).then((form)=>{
+      const file = form.getComponent('file');
+      return file.handleFilesToUpload([{ name: 'mypdf.pdf', size: 123123, type: 'application/pdf' }]);
+    });
   });
 });

@@ -1,10 +1,15 @@
-import Components from '../Components';
+import listComponentForm from '../_classes/list/ListComponent.form';
 import SelectEditData from './editForm/Select.edit.data';
 import SelectEditDisplay from './editForm/Select.edit.display';
 import SelectEditValidation from './editForm/Select.edit.validation';
 
+/**
+ * The Edit Form function.
+ * @param {...any} extend - The components that extend the edit form.
+ * @returns {import('@formio/core').Component[]} - The edit form components.
+ */
 export default function(...extend) {
-  return Components.baseEditForm([
+  return listComponentForm([
     {
       key: 'display',
       components: SelectEditDisplay
@@ -16,10 +21,6 @@ export default function(...extend) {
     {
       key: 'validation',
       components: SelectEditValidation
-    },
-    {
-      key: 'addons',
-      ignore: true
     },
   ], ...extend);
 }

@@ -2,7 +2,8 @@ import Component from '../_classes/component/Component';
 import DataGridComponent from '../datagrid/DataGrid';
 import _ from 'lodash';
 import EventEmitter from 'eventemitter3';
-import { uniqueKey } from '../../utils/utils';
+import { componentValueTypes, getComponentSavedTypes, uniqueKey } from '../../utils/utils';
+import { Components } from '../Components';
 
 export default class DataMapComponent extends DataGridComponent {
   static schema(...extend) {
@@ -33,7 +34,8 @@ export default class DataMapComponent extends DataGridComponent {
       title: 'Data Map',
       icon: 'th-list',
       group: 'data',
-      documentation: '/userguide/forms/data-components#data-map',
+      documentation: '/userguide/form-building/data-components#data-map',
+      showPreview: false,
       weight: 20,
       schema: DataMapComponent.schema()
     };
@@ -45,6 +47,10 @@ export default class DataMapComponent extends DataGridComponent {
       schema.valueComponent = this.components[this.components.length - 1].schema;
     }
     return _.omit(schema, 'components');
+  }
+
+  static savedValueTypes(schema) {
+    return getComponentSavedTypes(schema) || [componentValueTypes.object];
   }
 
   constructor(component, options, data) {
@@ -269,7 +275,7 @@ export default class DataMapComponent extends DataGridComponent {
       delete dataValue[key];
       const comp = components[this.valueKey];
       comp.component.key = newKey;
-      comp.path = this.calculateComponentPath(comp);
+      comp.path = Components.calculateComponentPath(comp);
       key = newKey;
     });
 
@@ -328,6 +334,14 @@ export default class DataMapComponent extends DataGridComponent {
   }
 
   checkColumns() {
+    if (this.builderMode || (!this.dataValue || !Object.keys(this.dataValue).length)) {
+      return { rebuild: false, show: true };
+    }
+
+    if (Object.keys(this.dataValue).length > (this.rows || []).length) {
+      return { rebuild: true, show: true };
+    }
+
     return { rebuild: false, show: true };
   }
 }

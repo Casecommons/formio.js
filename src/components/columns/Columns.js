@@ -24,10 +24,15 @@ export default class ColumnsComponent extends NestedComponent {
       title: 'Columns',
       icon: 'columns',
       group: 'layout',
-      documentation: '/userguide/forms/layout-components#columns',
+      documentation: '/userguide/form-building/layout-components#columns',
+      showPreview: false,
       weight: 10,
       schema: ColumnsComponent.schema()
     };
+  }
+
+  static savedValueTypes() {
+    return [];
   }
 
   constructor(component, options, data) {
@@ -69,7 +74,7 @@ export default class ColumnsComponent extends NestedComponent {
       if (!column.size) {
         column.size = 'md';
       }
-      column = _.assign(column, { currentWidth: column.width || 0 });
+      column.currentWidth = this.options.condensedMode ? this.gridSize : column.width || 0;
       // Ensure there is a components array.
       if (!Array.isArray(column.components)) {
         column.components = [];
@@ -97,6 +102,21 @@ export default class ColumnsComponent extends NestedComponent {
     }));
   }
 
+  justifyColumn(items, index) {
+    const toAdjust = _.every(items, item => !item.visible);
+    const column = this.component.columns[index];
+    const width = (toAdjust && items.length) ? 0 : column.width;
+    const shouldRedraw = !_.isEqual(width, column.currentWidth);
+
+    column.currentWidth = width;
+
+    return shouldRedraw;
+  }
+
+  justify() {
+    return this.columns.reduce((redraw, items, index) => this.justifyColumn(items, index) || redraw, false);
+  }
+
   attach(element) {
     this.loadRefs(element, { [this.columnKey]: 'multiple' });
     const superAttach = super.attach(element);
@@ -112,35 +132,9 @@ export default class ColumnsComponent extends NestedComponent {
     return 12;
   }
 
-  justifyRow(columns) {
-    const visible = _.filter(columns, 'visible');
-    const nbColumns = columns.length;
-    const nbVisible = visible.length;
-
-    if (nbColumns > 0 && nbVisible > 0) {
-      const w = Math.floor(this.gridSize / nbVisible);
-      const totalWidth = w * nbVisible;
-      const span = this.gridSize - totalWidth;
-
-      _.each(visible, column => {
-        column.component.width = w;
-      });
-
-      // In case when row is not fully filled,
-      // extending last col to fill empty space.
-      _.last(visible).component.width += span;
-
-      _.each(visible, col => {
-        if (col.element) {
-          col.element.setAttribute('class', col.className);
-        }
-      });
-    }
-  }
-
   /**
    * Group columns in rows.
-   * @return {Array.<ColumnComponent[]>}
+   * @returns {Array.<ColumnComponent[]>} - The array of columns 
    */
   groupByRow() {
     const initVal = { stack: [], rows: [] };
@@ -161,18 +155,15 @@ export default class ColumnsComponent extends NestedComponent {
     return _.concat(result.rows, [result.stack]);
   }
 
-  justify() {
-    _.each(this.columns, this.justifyRow.bind(this));
-  }
+  checkData(data, flags, row, components) {
+    super.checkData(data, flags, row, components);
 
-  checkComponentConditions(data, flags, row) {
-    if (this.component.autoAdjust) {
-      const result = super.checkComponentConditions(data, flags, row);
-      this.justify();
-      return result;
-    }
-    else {
-      return super.checkComponentConditions(data, flags, row);
+    if (this.component.autoAdjust && this.options.display !== 'pdf') {
+      const redraw = this.justify();
+
+      if (redraw) {
+        this.redraw();
+      }
     }
   }
 
@@ -180,8 +171,8 @@ export default class ColumnsComponent extends NestedComponent {
     super.detach(all);
   }
 
-  destroy() {
-    super.destroy();
+  destroy(all = false) {
+    super.destroy(all);
     this.columns = [];
   }
 }

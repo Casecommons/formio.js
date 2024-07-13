@@ -1,12 +1,7 @@
 import _ from 'lodash';
 import NestedArrayComponent from '../_classes/nestedarray/NestedArrayComponent';
 import { fastCloneDeep, getFocusableElements } from '../../utils/utils';
-
-let dragula;
-if (typeof window !== 'undefined') {
-  // Import from "dist" because it would require and "global" would not be defined in Angular apps.
-  dragula = require('dragula/dist/dragula');
-}
+import { Components } from '../Components';
 
 export default class DataGridComponent extends NestedArrayComponent {
   static schema(...extend) {
@@ -26,7 +21,8 @@ export default class DataGridComponent extends NestedArrayComponent {
       title: 'Data Grid',
       icon: 'th',
       group: 'data',
-      documentation: '/userguide/forms/data-components#data-grid',
+      documentation: '/userguide/form-building/data-components#data-grid',
+      showPreview: false,
       weight: 30,
       schema: DataGridComponent.schema()
     };
@@ -152,11 +148,23 @@ export default class DataGridComponent extends NestedArrayComponent {
     }));
   }
 
+  isEmpty(value = this.dataValue) {
+    const isEmpty = super.isEmpty(value);
+
+    if (this.components?.length) {
+      return this.components.reduce((isEmpty, component) => {
+        return isEmpty && component.isEmpty();
+      }, true);
+    }
+
+    return isEmpty;
+  }
+
   /**
    * Split rows into chunks.
-   * @param {Number[]} groups - array of numbers where each item is size of group
+   * @param {number[]} groups - array of numbers where each item is size of group
    * @param {Array<T>} rows - rows collection
-   * @return {Array<T[]>}
+   * @returns {Array<T[]>} - The chunked rows
    */
   getRowChunks(groups, rows) {
     const [, chunks] = groups.reduce(
@@ -171,7 +179,7 @@ export default class DataGridComponent extends NestedArrayComponent {
   /**
    * Create groups object.
    * Each key in object represents index of first row in group.
-   * @return {Object}
+   * @returns {object} - The groups object.
    */
   getGroups() {
     const groups = _.get(this.component, 'rowGroups', []);
@@ -193,8 +201,8 @@ export default class DataGridComponent extends NestedArrayComponent {
   }
 
   /**
-   * Retrun group sizes.
-   * @return {Number[]}
+   * Get group sizes.
+   * @returns {number[]} - The array of group sizes.
    */
   getGroupSizes() {
     return _.map(_.get(this.component, 'rowGroups', []), 'numberOfRows');
@@ -233,7 +241,7 @@ export default class DataGridComponent extends NestedArrayComponent {
   }
 
   get canAddColumn() {
-    return this.builderMode;
+    return this.builderMode && !this.options.design;
   }
 
   render() {
@@ -303,7 +311,7 @@ export default class DataGridComponent extends NestedArrayComponent {
     super.loadRefs(element, refs);
 
     if (refs['messageContainer'] === 'single') {
-      const container = _.last(element.querySelectorAll('[ref=messageContainer]'));
+      const container = _.last(element.querySelectorAll(`[${this._referenceAttributeName}=messageContainer]`));
       this.refs['messageContainer'] = container || this.refs['messageContainer'];
     }
   }
@@ -324,8 +332,8 @@ export default class DataGridComponent extends NestedArrayComponent {
         row.dragInfo = { index };
       });
 
-      if (dragula) {
-        this.dragula = dragula([this.refs[`${this.datagridKey}-tbody`]], {
+      if (this.root.dragulaLib) {
+        this.dragula = this.root.dragulaLib([this.refs[`${this.datagridKey}-tbody`]], {
           moves: (_draggedElement, _oldParent, clickedElement) => {
             const clickedElementKey = clickedElement.getAttribute('data-key');
             const oldParentKey = _oldParent.getAttribute('data-key');
@@ -423,10 +431,13 @@ export default class DataGridComponent extends NestedArrayComponent {
 
   focusOnNewRowElement(row) {
     Object.keys(row).find((key) => {
-      const focusableElements = getFocusableElements(row[key].element);
-      if (focusableElements && focusableElements[0]) {
-        focusableElements[0].focus();
-        return true;
+      const element = row[key].element;
+      if (element) {
+        const focusableElements = getFocusableElements(element);
+        if (focusableElements && focusableElements[0]) {
+          focusableElements[0].focus();
+          return true;
+        }
       }
       return false;
     });
@@ -472,7 +483,7 @@ export default class DataGridComponent extends NestedArrayComponent {
       }
       component.rowIndex = rowIndex;
       component.row = `${rowIndex}-${colIndex}`;
-      component.path = this.calculateComponentPath(component);
+      component.path = Components.getComponentPath(component);
     });
   }
 
@@ -483,12 +494,14 @@ export default class DataGridComponent extends NestedArrayComponent {
   }
 
   removeRow(index) {
-    this.splice(index, { isReordered: true });
+    const makeEmpty = index === 0 && this.rows.length === 1;
+    const flags = { isReordered: !makeEmpty, resetValue: makeEmpty };
+    this.splice(index, flags);
     this.emit('dataGridDeleteRow', { index });
     const [row] = this.rows.splice(index, 1);
     this.removeRowComponents(row);
     this.updateRowsComponents(index);
-    this.setValue(this.dataValue, { isReordered: true });
+    this.setValue(this.dataValue, flags);
     this.redraw();
   }
 
@@ -569,33 +582,6 @@ export default class DataGridComponent extends NestedArrayComponent {
     return components;
   }
 
-  /**
-   * Checks the validity of this datagrid.
-   *
-   * @param data
-   * @param dirty
-   * @return {*}
-   */
-  checkValidity(data, dirty, row, silentCheck) {
-    data = data || this.rootValue;
-    row = row || this.data;
-
-    if (!this.checkCondition(row, data)) {
-      this.setCustomValidity('');
-      return true;
-    }
-
-    if (!this.checkComponentValidity(data, dirty, row, { silentCheck })) {
-      return false;
-    }
-
-    const isValid = this.checkRows('checkValidity', data, dirty, true, silentCheck);
-
-    this.checkModal(isValid, dirty);
-
-    return isValid;
-  }
-
   checkColumns(data, flags = {}) {
     data = data || this.rootValue;
     let show = false;
@@ -622,7 +608,14 @@ export default class DataGridComponent extends NestedArrayComponent {
 
           if (col.component.logic && firstRowCheck) {
             const compIndex = _.findIndex(this.columns, ['key', key]);
-            if (!_.isEqual(this.columns[compIndex], col.component)) {
+            const equalColumns = _.isEqualWith(this.columns[compIndex], col.component, (col1, col2, key) => {
+              // Don't compare columns by their auto-generated ids.
+              if (key === 'id') {
+                return true;
+              }
+            });
+
+            if (!equalColumns) {
               logicRebuild = true;
               this.columns[compIndex] = col.component;
             }
@@ -682,7 +675,8 @@ export default class DataGridComponent extends NestedArrayComponent {
 
     this.dataValue = value;
 
-    if (this.initRows || isSettingSubmission) {
+    if (this.initRows || isSettingSubmission ||
+        (Array.isArray(this.dataValue) && this.dataValue.length !== this.rows.length)) {
       if (!this.createRows() && changed) {
         this.redraw();
       }

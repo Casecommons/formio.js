@@ -1,5 +1,5 @@
 import EditFormUtils from './utils';
-import Evaluator from '../../../../utils/Evaluator';
+import { Evaluator } from '../../../../utils/Evaluator';
 
 /* eslint-disable quotes, max-len */
 export default [
@@ -17,6 +17,14 @@ export default [
     label: 'Unique',
     tooltip: 'Makes sure the data submitted for this field is unique, and has not been submitted before.',
     key: 'unique',
+    input: true
+  },
+  {
+    weight: 100,
+    type: 'checkbox',
+    label: 'Validate When Hidden',
+    tooltip: 'Validates the component when it is hidden/conditionally hidden. Vaildation errors are displayed in the error alert on the form submission.',
+    key: 'validateWhenHidden',
     input: true
   },
   {
@@ -114,7 +122,7 @@ export default [
         type: 'htmlelement',
         tag: 'div',
         /* eslint-disable prefer-template */
-        content: '<p>Execute custom logic using <a href="http://jsonlogic.com/" target="_blank">JSONLogic</a>.</p>' +
+        content: '<p>Execute custom logic using <a href="http://jsonlogic.com/" target="_blank" rel="noopener noreferrer">JSONLogic</a>.</p>' +
           '<h5>Example:</h5>' +
           '<pre>' + JSON.stringify({
             "if": [

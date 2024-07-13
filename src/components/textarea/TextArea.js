@@ -1,7 +1,6 @@
 /* global Quill */
 import TextFieldComponent from '../textfield/TextField';
 import _ from 'lodash';
-import NativePromise from 'native-promise-only';
 import { uniqueName, getBrowserInfo } from '../../utils/utils';
 
 export default class TextAreaComponent extends TextFieldComponent {
@@ -27,7 +26,7 @@ export default class TextAreaComponent extends TextFieldComponent {
       title: 'Text Area',
       group: 'basic',
       icon: 'font',
-      documentation: '/userguide/forms/form-components#text-area',
+      documentation: '/userguide/form-building/form-components#text-area',
       weight: 20,
       schema: TextAreaComponent.schema()
     };
@@ -66,7 +65,7 @@ export default class TextAreaComponent extends TextFieldComponent {
     info.content = value;
     if ((this.options.readOnly || this.disabled) && !this.isHtmlRenderMode()) {
       const elementStyle = this.info.attr.style || '';
-      const children = `<div ref="input" class="formio-editor-read-only-content" ${elementStyle ? `style='${elementStyle}'` : ''}></div>`;
+      const children = `<div ${this._referenceAttributeName}="input" class="formio-editor-read-only-content" ${elementStyle ? `style='${elementStyle}'` : ''}></div>`;
 
       return this.renderTemplate('well', {
         children,
@@ -90,8 +89,8 @@ export default class TextAreaComponent extends TextFieldComponent {
 
   /**
    * Updates the editor value.
-   *
-   * @param newValue
+   * @param {number} index - The index of the editor.
+   * @param {any} newValue - The new editor value.
    */
   updateEditorValue(index, newValue) {
     newValue = this.getConvertedValue(this.trimBlanks(newValue));
@@ -130,7 +129,7 @@ export default class TextAreaComponent extends TextFieldComponent {
       : this.component.wysiwyg;
 
     // Keep track of when this editor is ready.
-    this.editorsReady[index] = new NativePromise((editorReady) => {
+    this.editorsReady[index] = new Promise((editorReady) => {
       // Attempt to add a wysiwyg editor. In order to add one, it must be included on the global scope.
       switch (this.component.editor) {
         case 'ace':
@@ -327,7 +326,7 @@ export default class TextAreaComponent extends TextFieldComponent {
         this.setConvertedValue(value);
       return super.setValue(value, flags);
     }
-    flags.skipWysiwyg = _.isEqual(value, this.getValue());
+    flags.skipWysiwyg = value === '' && flags.resetValue ? false : _.isEqual(value, this.getValue());
     return super.setValue(value, flags);
   }
 
@@ -343,10 +342,10 @@ export default class TextAreaComponent extends TextFieldComponent {
     if (this.options.readOnly || this.disabled) {
       if (this.refs.input && this.refs.input[index]) {
         if (this.component.inputFormat === 'plain') {
-          this.refs.input[index].innerText = this.interpolate(value, {}, { noeval: true });
+          this.refs.input[index].innerText = this.isPlain ? value : this.interpolate(value, {}, { noeval: true });
         }
         else {
-          this.setContent(this.refs.input[index], this.interpolate(value, {}, { noeval: true }), this.shouldSanitizeValue);
+          this.setContent(this.refs.input[index], this.isPlain ? value : this.interpolate(value, {}, { noeval: true }), this.shouldSanitizeValue);
         }
       }
     }
@@ -398,12 +397,12 @@ export default class TextAreaComponent extends TextFieldComponent {
         });
     }
     else {
-      return NativePromise.resolve(value);
+      return Promise.resolve(value);
     }
   }
 
   setImagesUrl(images) {
-    return NativePromise.all(_.map(images, image => {
+    return Promise.all(_.map(images, image => {
       let requestData;
       try {
         requestData = JSON.parse(image.getAttribute('alt'));
@@ -582,19 +581,32 @@ export default class TextAreaComponent extends TextFieldComponent {
     super.focus();
     switch (this.component.editor) {
       case 'ckeditor': {
-        if (this.editors[0].editing?.view?.focus) {
-          this.editors[0].editing.view.focus();
-        }
-        this.element.scrollIntoView();
+        // Wait for the editor to be ready.
+        this.editorsReady[0]?.then(() => {
+          if (this.editors[0].editing?.view?.focus) {
+            this.editors[0].editing.view.focus();
+          }
+          this.element.scrollIntoView();
+        }).catch((err) => {
+          console.warn('An editor did not initialize properly when trying to focus:', err);
+        });
         break;
       }
       case 'ace': {
-        this.editors[0].focus();
-        this.element.scrollIntoView();
+        this.editorsReady[0]?.then(() => {
+          this.editors[0].focus();
+          this.element.scrollIntoView();
+        }).catch((err) => {
+          console.warn('An editor did not initialize properly when trying to focus:', err);
+        });
         break;
       }
       case 'quill': {
-        this.editors[0].focus();
+        this.editorsReady[0]?.then(() => {
+          this.editors[0].focus();
+        }).catch((err) => {
+          console.warn('An editor did not initialize properly when trying to focus:', err);
+        });
         break;
       }
     }

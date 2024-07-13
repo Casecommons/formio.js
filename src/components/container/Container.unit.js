@@ -6,10 +6,11 @@ import ContainerComponent from './Container';
 import {
   comp1,
   comp2,
-  comp3
+  comp3,
+  comp4,
 } from './fixtures';
 
-import Formio from '../../Formio';
+import { Formio } from '../../Formio';
 
 describe('Container Component', () => {
   it('Should build a container component', () => {
@@ -55,26 +56,44 @@ describe('Container Component', () => {
     });
   });
 
-  it('Should render form with a submission in a draft-state without validation errors', (done) => {
+  it('Should submit form with a submission in a draft-state without validation errors', (done) => {
     const form = _.cloneDeep(comp3);
     const element = document.createElement('div');
-
     Formio.createForm(element, form).then(form => {
-      form.submission = {
+      form.nosubmit = true;
+      form.setSubmission({
+        state: 'draft',
         data: {
           'container': {
             'textField': 'a',
           }
         }
-      };
+      }).then(() => {
+        form.submitForm().then((event) => {
+          // It should allow the submission in the renderer.
+          assert.equal(event.submission.state, 'draft');
+          done();
+        }).catch((err) => done(err));
+      }).catch(done);
+    }).catch(done);
+  });
+
+  it('Should not set the default value when clearOnHide during the server-side validation', (done) => {
+    const form = _.cloneDeep(comp4);
+    const element = document.createElement('div');
+
+    Formio.createForm(element, form, { server: true, noDefaults: true }).then(form => {
+      form.setValue({ data: { checkbox: false } }, {
+        sanitize: true,
+      }, true);
+
+      form.checkConditions();
+      form.clearOnHide();
 
       setTimeout(() => {
-        const textField = form.getComponent(['textField']);
-        const container = form.getComponent(['container']);
-        assert.equal(textField.errors.length, 0);
-        assert.equal(container.errors.length, 0);
+        assert.deepEqual(form._data, { checkbox: false }, 'Should not add Container\'s key');
         done();
-      }, 100);
+      }, 200);
     }).catch(done);
   });
 });

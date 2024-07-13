@@ -1,14 +1,14 @@
 /* globals Quill, ClassicEditor, CKEDITOR */
 import { conformToMask } from '@formio/vanilla-text-mask';
-import NativePromise from 'native-promise-only';
 import tippy from 'tippy.js';
 import _ from 'lodash';
 import isMobile from 'ismobilejs';
-import { GlobalFormio as Formio } from '../../../Formio';
+import { processOne, processOneSync, validateProcessInfo } from '@formio/core/process';
+
+import { Formio } from '../../../Formio';
 import * as FormioUtils from '../../../utils/utils';
-import Validator from '../../../validator/Validator';
 import {
-  fastCloneDeep, boolValue, getComponentPath, isInsideScopingComponent,
+  fastCloneDeep, boolValue, getComponentPath, isInsideScopingComponent, currentTimezone, getScriptPlugin
 } from '../../../utils/utils';
 import Element from '../../../Element';
 import ComponentModal from '../componentModal/ComponentModal';
@@ -16,22 +16,9 @@ import Widgets from '../../../widgets';
 import Addons from '../../../addons';
 import { getFormioUploadAdapterPlugin } from '../../../providers/storage/uploadAdapter';
 import enTranslation from '../../../translations/en';
+import Templates from '../../../templates/Templates';
 
 const isIEBrowser = FormioUtils.getBrowserInfo().ie;
-const CKEDITOR_URL = isIEBrowser
-      ? 'https://cdn.ckeditor.com/4.14.1/standard/ckeditor.js'
-      : 'https://cdn.form.io/ckeditor/19.0.0/ckeditor.js';
-const QUILL_URL = isIEBrowser
-  ? 'https://cdn.quilljs.com/1.3.7'
-  : 'https://cdn.quilljs.com/2.0.0-dev.3';
-const QUILL_TABLE_URL = 'https://cdn.form.io/quill/quill-table.js';
-const ACE_URL = 'https://cdn.form.io/ace/1.4.10/ace.js';
-
-let Templates = Formio.Templates;
-
-if (!Templates) {
-  Templates = require('../../../templates/Templates').default;
-}
 
 /**
  * This is the Component class
@@ -205,21 +192,37 @@ export default class Component extends Element {
       addons: [],
     }, ...sources);
   }
-
   /**
-   * Return the validator as part of the component.
-   *
-   * @return {ValidationChecker}
-   * @constructor
+   * Return the simple condition settings as part of the component.
+   * @returns {object} - The simple conditional settings.
    */
-  static get Validator() {
-    return Validator;
+  static get conditionOperatorsSettings() {
+    return {
+      operators: ['isEqual', 'isNotEqual', 'isEmpty', 'isNotEmpty'],
+      valueComponent() {
+        return {
+          type: 'textfield',
+          widget: {
+            type: 'input'
+          }
+        };
+      }
+    };
   }
+  /**
+   * Return the array of possible types of component value absed on its schema.
+   * @param schema
+   * @returns {Array}
+   */
 
+  static savedValueTypes(schema) {
+    schema = schema || {};
+
+    return FormioUtils.getComponentSavedTypes(schema) || [FormioUtils.componentValueTypes.any];
+  }
   /**
    * Provides a table view for this component. Override if you wish to do something different than using getView
    * method of your instance.
-   *
    * @param value
    * @param options
    */
@@ -229,10 +232,9 @@ export default class Component extends Element {
 
   /**
    * Initialize a new Component.
-   *
-   * @param {Object} component - The component JSON you wish to initialize.
-   * @param {Object} options - The options for this component.
-   * @param {Object} data - The global data submission object this component will belong.
+   * @param {object} component - The component JSON you wish to initialize.
+   * @param {object} options - The options for this component.
+   * @param {object} data - The global data submission object this component will belong.
    */
   /* eslint-disable max-statements */
   constructor(component, options, data) {
@@ -269,16 +271,21 @@ export default class Component extends Element {
     }
 
     /**
-     * Set the validator instance.
-     */
-    this.validator = Validator;
-
-    /**
      * The data path to this specific component instance.
-     *
      * @type {string}
      */
-    this.path = '';
+    this.path = component?.key || '';
+
+    /**
+     * An array of all the children components errors.
+     */
+    this.childErrors = [];
+
+    /**
+     * Last validation errors that have occured.
+     */
+    this._errors = [];
+    this._visibleErrors = [];
 
     /**
      * The Form.io component JSON schema.
@@ -288,6 +295,8 @@ export default class Component extends Element {
 
     // Add the id to the component.
     this.component.id = this.id;
+
+    this.afterComponentAssign();
 
     // Save off the original component to be used in logic.
     this.originalComponent = fastCloneDeep(this.component);
@@ -309,12 +318,6 @@ export default class Component extends Element {
     this._data = data || {};
 
     /**
-     * The existing error that this component has.
-     * @type {string}
-     */
-    this.error = '';
-
-    /**
      * Tool tip text after processing
      * @type {string}
      */
@@ -327,45 +330,39 @@ export default class Component extends Element {
     this.row = this.options.row;
 
     /**
+     * Points to a flat map of child components (if applicable).
+     * @type {object}
+     */
+    this.childComponentsMap = {};
+
+    /**
      * Determines if this component is disabled, or not.
-     *
      * @type {boolean}
      */
     this._disabled = boolValue(this.component.disabled) ? this.component.disabled : false;
 
     /**
      * Points to the root component, usually the FormComponent.
-     *
      * @type {Component}
      */
-    this.root = this.options.root;
-    this.localRoot = this.options.localRoot;
+    this.root = this.options.root || this;
+    this.localRoot = this.options.localRoot || this;
 
     /**
      * If this input has been input and provided value.
-     *
      * @type {boolean}
      */
     this.pristine = true;
 
     /**
      * Points to the parent component.
-     *
      * @type {Component}
      */
     this.parent = this.options.parent;
 
     this.options.name = this.options.name || 'data';
 
-    /**
-     * The validators that are assigned to this component.
-     * @type {[string]}
-     */
-    this.validators = ['required', 'minLength', 'maxLength', 'minWords', 'maxWords', 'custom', 'pattern', 'json', 'mask'];
-
     this._path = '';
-    // Nested forms don't have parents so we need to pass their path in.
-    this._parentPath = this.options.parentPath || '';
 
     // Needs for Nextgen Rules Engine
     this.resetCaches();
@@ -378,8 +375,13 @@ export default class Component extends Element {
     this._parentDisabled = false;
 
     /**
+     * The reference attribute name for this component
+     */
+    this._referenceAttributeName = 'ref';
+
+    /**
      * Used to trigger a new change in this component.
-     * @type {function} - Call to trigger a change in this component.
+     * @type {Function} - Call to trigger a change in this component.
      */
     let changes = [];
     let lastChanged = null;
@@ -421,7 +423,6 @@ export default class Component extends Element {
 
     /**
      * Used to trigger a redraw event within this component.
-     *
      * @type {Function}
      */
     this.triggerRedraw = _.debounce(this.redraw.bind(this), 100);
@@ -477,6 +478,15 @@ export default class Component extends Element {
   }
   /* eslint-enable max-statements */
 
+  get componentsMap() {
+    if (this.localRoot?.childComponentsMap) {
+      return this.localRoot.childComponentsMap;
+    }
+    const localMap = {};
+    localMap[this.path] = this;
+    return localMap;
+  }
+
   get data() {
     return this._data;
   }
@@ -491,7 +501,14 @@ export default class Component extends Element {
 
   // Allow componets to notify when ready.
   get ready() {
-    return NativePromise.resolve(this);
+    return Promise.resolve(this);
+  }
+
+  get isPDFReadOnlyMode() {
+    return this.parent &&
+      this.parent.form &&
+      (this.parent.form.display === 'pdf') &&
+      this.options.readOnly;
   }
 
   get labelInfo() {
@@ -502,10 +519,7 @@ export default class Component extends Element {
     label.labelPosition = this.component.labelPosition;
     label.tooltipClass = `${this.iconClass('question-sign')} text-muted`;
 
-    const isPDFReadOnlyMode = this.parent &&
-      this.parent.form &&
-      (this.parent.form.display === 'pdf') &&
-      this.options.readOnly;
+    const isPDFReadOnlyMode = this.isPDFReadOnlyMode;
 
     if (this.hasInput && this.component.validate && boolValue(this.component.validate.required) && !isPDFReadOnlyMode) {
       label.className += ' field-required';
@@ -527,6 +541,10 @@ export default class Component extends Element {
     }
   }
 
+  afterComponentAssign() {
+    //implement in extended classes
+  }
+
   createAddon(addonConfiguration) {
     const name = addonConfiguration.name;
     if (!name) {
@@ -534,7 +552,7 @@ export default class Component extends Element {
     }
 
     const settings = addonConfiguration.settings?.data || {};
-    const Addon = Addons[name];
+    const Addon = Addons[name.value];
 
     let addon = null;
 
@@ -547,17 +565,38 @@ export default class Component extends Element {
         this.addons.push(addon);
       }
       else {
-        console.warn(`Addon ${name} does not support component of type ${this.component.type}.`);
+        console.warn(`Addon ${name.label} does not support component of type ${this.component.type}.`);
       }
     }
 
     return addon;
   }
 
-  destroy() {
-    super.destroy();
+  teardown() {
+    if (this.element) {
+      delete this.element.component;
+      delete this.element;
+    }
+    delete this._currentForm;
+    delete this.parent;
+    delete this.root;
+    delete this.triggerChange;
+    delete this.triggerRedraw;
+    if (this.options) {
+      delete this.options.root;
+      delete this.options.parent;
+      delete this.options.i18next;
+    }
+    super.teardown();
+  }
+
+  destroy(all = false) {
+    super.destroy(all);
     this.detach();
     this.addons.forEach((addon) => addon.destroy());
+    if (all) {
+      this.teardown();
+    }
   }
 
   get shouldDisabled() {
@@ -600,12 +639,41 @@ export default class Component extends Element {
     return this._parentDisabled;
   }
 
+  shouldForceVisibility(component, visibility) {
+    if (!this.options[visibility]) {
+      return false;
+    }
+    if (!component) {
+      component = this.component;
+    }
+    if (_.isArray(this.options[visibility])) {
+      return this.options[visibility].includes(component.key);
+    }
+    return this.options[visibility][component.key];
+  }
+
+  shouldForceHide(component) {
+    return this.shouldForceVisibility(component, 'hide');
+  }
+
+  shouldForceShow(component) {
+    return this.shouldForceVisibility(component, 'show');
+  }
+
   /**
-   *
-   * @param value {boolean}
+   * Sets the component visibility.
+   * @param {boolean} value - Whether the component should be visible or not.
    */
   set visible(value) {
     if (this._visible !== value) {
+      // Skip if this component is set to visible and is supposed to be hidden.
+      if (value && this.shouldForceHide()) {
+        return;
+      }
+      // Skip if this component is set to hidden and is supposed to be shown.
+      if (!value && this.shouldForceShow()) {
+        return;
+      }
       this._visible = value;
       this.clearOnHide();
       this.redraw();
@@ -613,27 +681,20 @@ export default class Component extends Element {
   }
 
   /**
-   *
-   * @returns {boolean}
+   * Returns the component visibility
+   * @returns {boolean} - Whether the component is visible or not.
    */
   get visible() {
     // Show only if visibility changes or if we are in builder mode or if hidden fields should be shown.
     if (this.builderMode || this.previewMode || this.options.showHiddenFields) {
       return true;
     }
-    if (
-      this.options.hide &&
-      this.options.hide[this.component.key]
-    ) {
+    if (this.shouldForceHide()) {
       return false;
     }
-    if (
-      this.options.show &&
-      this.options.show[this.component.key]
-    ) {
+    if (this.shouldForceShow()) {
       return true;
     }
-
     return this._visible && this._parentVisible;
   }
 
@@ -690,17 +751,20 @@ export default class Component extends Element {
   }
 
   rightDirection(direction) {
+    if (this.options.condensedMode) {
+      return false;
+    }
     return direction === 'right';
   }
 
-  getLabelInfo() {
+  getLabelInfo(isCondensed = false) {
     const isRightPosition = this.rightDirection(this.labelPositions[0]);
-    const isLeftPosition = this.labelPositions[0] === 'left';
+    const isLeftPosition = this.labelPositions[0] === 'left' || isCondensed;
     const isRightAlign = this.rightDirection(this.labelPositions[1]);
 
     let contentMargin = '';
     if (this.component.hideLabel) {
-      const margin = this.labelWidth + this.labelMargin;
+      const margin = isCondensed ? 0 : this.labelWidth + this.labelMargin;
       contentMargin = isRightPosition ? `margin-right: ${margin}%` : '';
       contentMargin = isLeftPosition ? `margin-left: ${margin}%` : '';
     }
@@ -725,9 +789,10 @@ export default class Component extends Element {
 
   /**
    * Returns only the schema that is different from the default.
-   *
-   * @param schema
-   * @param defaultSchema
+   * @param {object} schema - The "full" json schema for the component.
+   * @param {object} defaultSchema - The "default" json schema for the component.
+   * @param {boolean} recursion - If we are currently in a recursive loop.
+   * @returns {object} - The minified json schema for this component.
    */
   getModifiedSchema(schema, defaultSchema, recursion) {
     const modified = {};
@@ -764,6 +829,7 @@ export default class Component extends Element {
 
   /**
    * Returns the JSON schema for this component.
+   * @returns {object} - The JSON schema for this component.
    */
   get schema() {
     return fastCloneDeep(this.getModifiedSchema(_.omit(this.component, 'id'), this.defaultSchema));
@@ -771,6 +837,7 @@ export default class Component extends Element {
 
   /**
    * Returns true if component is inside DataGrid
+   * @returns {boolean} - True if component is inside DataGrid
    */
   get isInDataGrid() {
     return this.inDataGrid;
@@ -778,9 +845,10 @@ export default class Component extends Element {
 
   /**
    * Translate a text using the i18n system.
-   *
    * @param {string} text - The i18n identifier.
-   * @param {Object} params - The i18n parameters to use for translation.
+   * @param {object} params - The i18n parameters to use for translation.
+   * @param {...any} args - Additional arguments to pass to the translation library.
+   * @returns {string} - The translated text.
    */
   t(text, params = {}, ...args) {
     if (!text) {
@@ -790,9 +858,9 @@ export default class Component extends Element {
     if (text in enTranslation && params._userInput) {
       return text;
     }
-    params.data = this.rootValue;
-    params.row = this.data;
-    params.component = this.component;
+    params.data = params.data || this.rootValue;
+    params.row = params.row || this.data;
+    params.component = params.component || this.component;
     return super.t(text, params, ...args);
   }
 
@@ -800,12 +868,14 @@ export default class Component extends Element {
     return !this.component.label ||
       ((!this.isInDataGrid && this.component.hideLabel) ||
       (this.isInDataGrid && !this.component.dataGridLabel) ||
+      this.options.floatingLabels ||
       this.options.inputsOnly) && !this.builderMode;
   }
 
-  get transform() {
-    return Templates.current.hasOwnProperty('transform')
-      ? Templates.current.transform.bind(Templates.current)
+  transform(type, value) {
+    const frameworkTemplates = this.options.template ? Templates.templates[this.options.template] : Templates.current;
+    return frameworkTemplates.hasOwnProperty('transform')
+      ? frameworkTemplates.transform(type, value, this)
       : (type, value) => value;
   }
 
@@ -836,15 +906,15 @@ export default class Component extends Element {
     const templatesByName = Templates.defaultTemplates[name];
 
     if (!templatesByName) {
-      return `Unknown template: ${name}`;
+      return { template: `Unknown template: ${name}` };
     }
 
     const templateByMode = this.checkTemplateMode(templatesByName, modes);
     if (templateByMode) {
-      return templateByMode;
+      return { template: templateByMode };
     }
 
-    return templatesByName.form;
+    return { template: templatesByName.form };
   }
 
   checkTemplate(templates, names, modes) {
@@ -852,9 +922,10 @@ export default class Component extends Element {
       const templatesByName = templates[name];
 
       if (templatesByName) {
+        const { referenceAttributeName } = templatesByName;
         const templateByMode = this.checkTemplateMode(templatesByName, modes);
         if (templateByMode) {
-          return templateByMode;
+          return { template: templateByMode, referenceAttributeName };
         }
       }
     }
@@ -874,17 +945,20 @@ export default class Component extends Element {
     return null;
   }
 
+  getFormattedAttribute(attr) {
+    return attr ? this.t(attr, { _userInput: true }).replace(/"/g, '&quot;') : '';
+  }
+
   getFormattedTooltip(tooltipValue) {
     const tooltip = this.interpolate(tooltipValue || '').replace(/(?:\r\n|\r|\n)/g, '<br />');
-
-    return tooltip ? this.t(tooltip, { _userInput: true }).replace(/"/g, '&quot;') : '';
+    return this.getFormattedAttribute(tooltip);
   }
 
   isHtmlRenderMode() {
     return this.options.renderMode === 'html';
   }
 
-  renderTemplate(name, data = {}, modeOption) {
+  renderTemplate(name, data = {}, modeOption = '') {
     // Need to make this fall back to form if renderMode is not found similar to how we search templates.
     const mode = modeOption || this.options.renderMode || 'form';
     data.component = this.component;
@@ -894,7 +968,7 @@ export default class Component extends Element {
     data.iconClass = this.iconClass.bind(this);
     data.size = this.size.bind(this);
     data.t = this.t.bind(this);
-    data.transform = this.transform;
+    data.transform = this.transform.bind(this);
     data.id = data.id || this.id;
     data.key = data.key || this.key;
     data.value = data.value || this.dataValue;
@@ -906,7 +980,7 @@ export default class Component extends Element {
       pass pre-compiled template A (use this.renderTemplate('template_A_name') as template context variable for template B`);
       return this.renderTemplate(...args);
     };
-    data.label = this.labelInfo;
+    data.label = data.labelInfo || this.labelInfo;
     data.tooltip = this.getFormattedTooltip(this.component.tooltip);
 
     // Allow more specific template names
@@ -918,9 +992,13 @@ export default class Component extends Element {
     ];
 
     // Allow template alters.
+    const { referenceAttributeName, template } = this.getTemplate(names, mode);
+    if (referenceAttributeName) {
+      this._referenceAttributeName = referenceAttributeName;
+    }
     return this.hook(
       `render${name.charAt(0).toUpperCase() + name.substring(1, name.length)}`,
-      this.interpolate(this.getTemplate(names, mode), data),
+      this.interpolate(template, data),
       data,
       mode
     );
@@ -928,13 +1006,13 @@ export default class Component extends Element {
 
   /**
    * Sanitize an html string.
-   *
-   * @param string
-   * @returns {*}
+   * @param {string} dirty - The dirty html string to sanitize.
+   * @param {boolean} forceSanitize - If we should force the sanitize to occur.
+   * @param {object} options - The options for the sanitize.
+   * @returns {*} - The sanitized html string.
    */
-  sanitize(dirty, forceSanitize, options) {
-    // No need to sanitize when generating PDF'S since no users interact with the form.
-    if ((!this.shouldSanitizeValue && !forceSanitize) || ((this.options.pdf) && !forceSanitize)) {
+  sanitize(dirty, forceSanitize = false, options = {}) {
+    if (!this.shouldSanitizeValue && !forceSanitize) {
       return dirty;
     }
     return FormioUtils.sanitize(
@@ -946,12 +1024,9 @@ export default class Component extends Element {
 
   /**
    * Render a template string into html.
-   *
-   * @param template
-   * @param data
-   * @param actions
-   *
-   * @return {HTMLElement|String} - The created element or an empty string if template is not specified.
+   * @param {string} template - The template to render.
+   * @param {object} data - The data to provide to the template.
+   * @returns {HTMLElement | string} - The created element or an empty string if template is not specified.
    */
   renderString(template, data) {
     if (!template) {
@@ -961,10 +1036,19 @@ export default class Component extends Element {
     return this.interpolate(template, data);
   }
 
+  /**
+   * Allows for modification of the component value prior to submission.
+   * @param {*} input - The input to be modified.
+   * @returns {*} - The modified input mapping for the extended component.
+   */
   performInputMapping(input) {
     return input;
   }
 
+  /**
+   * Returns the component "widget" if one is available.
+   * @returns {Widget|null} - The widget instance. null if not available.
+   */
   get widget() {
     const settings = this.component.widget;
 
@@ -976,6 +1060,10 @@ export default class Component extends Element {
     return widget;
   }
 
+  /**
+   * Returns the native supported browser language.
+   * @returns {string|null} - The native browser language that is supported.
+   */
   getBrowserLanguage() {
     const nav = window.navigator;
     const browserLanguagePropertyKeys = ['language', 'browserLanguage', 'systemLanguage', 'userLanguage'];
@@ -1003,45 +1091,90 @@ export default class Component extends Element {
   }
 
   /**
-   * Called before a next and previous page is triggered allowing the components
-   * to perform special functions.
-   *
-   * @return {*}
+   * Called before a next and previous page is triggered allowing the components to perform special functions.
+   * @returns {Promise<boolean>} - A promise to resolve when the component is no longer blocking the next/previous page navigation.
    */
   beforePage() {
-    return NativePromise.resolve(true);
+    return Promise.resolve(true);
   }
 
+  /**
+   * Called before the next page is triggered allowing the components to hook into the page navigation and perform tasks.
+   * @returns {Promise<boolean>} - A promise to resolve when the component is no longer blocking the next page navigation.
+   */
   beforeNext() {
     return this.beforePage(true);
   }
 
   /**
-   * Called before a submission is triggered allowing the components
-   * to perform special async functions.
-   *
-   * @return {*}
+   * Called before a submission is triggered allowing the components to perform special async functions.
+   * @returns {Promise<boolean>} - A promise to resolve when the component is no longer blocking the submission.
    */
   beforeSubmit() {
-    return NativePromise.resolve(true);
+    return Promise.resolve(true);
   }
 
   /**
    * Return the submission timezone.
-   *
-   * @return {*}
+   * @returns {string} - The submission timezone.
    */
   get submissionTimezone() {
     this.options.submissionTimezone = this.options.submissionTimezone || _.get(this.root, 'options.submissionTimezone');
     return this.options.submissionTimezone;
   }
 
-  loadRefs(element, refs) {
+  /**
+   * Return the current timezone.
+   * @returns {string} - The current timezone.
+   */
+  get timezone() {
+    return this.getTimezone(this.component);
+  }
+
+  /**
+   * Return the current timezone.
+   * @param {object} settings - Settings to control how the timezone should be returned.
+   * @returns {string} - The current timezone.
+   */
+  getTimezone(settings) {
+    if (settings.timezone) {
+      return settings.timezone;
+    }
+    if (settings.displayInTimezone === 'utc') {
+      return 'UTC';
+    }
+    const submissionTimezone = this.submissionTimezone;
+    if (
+      submissionTimezone &&
+      (
+        (settings.displayInTimezone === 'submission') ||
+        ((this.options.pdf || this.options.server) && (settings.displayInTimezone === 'viewer'))
+      )
+    ) {
+      return submissionTimezone;
+    }
+
+    // Return current timezone if none are provided.
+    return currentTimezone();
+  }
+
+  /**
+   *
+   * @param {HTMLElement} element - The containing DOM element to query for the ref value.
+   * @param {object} refs - The references to load.
+   * @param {string} [referenceAttributeName] - The attribute name to use for the reference.
+   */
+  loadRefs(element, refs, referenceAttributeName) {
+    if (!element) {
+      return;
+    }
     for (const ref in refs) {
       const refType = refs[ref];
       const isString = typeof refType === 'string';
 
-      const selector = isString && refType.includes('scope') ? `:scope > [ref="${ref}"]` : `[ref="${ref}"]`;
+      const selector = isString && refType.includes('scope')
+        ? `:scope > [${referenceAttributeName || this._referenceAttributeName || 'ref'}="${ref}"]`
+        : `[${referenceAttributeName || this._referenceAttributeName || 'ref'}="${ref}"]`;
 
       if (isString && refType.startsWith('single')) {
         this.refs[ref] = element.querySelector(selector);
@@ -1052,23 +1185,47 @@ export default class Component extends Element {
     }
   }
 
-  setOpenModalElement(template) {
+  /**
+   * Opens the modal element.
+   * @param {string} template - The template to use for the modal dialog.
+   */
+  setOpenModalElement(template = null) {
     this.componentModal.setOpenModalElement(template || this.getModalPreviewTemplate());
   }
 
+  /**
+   * Renders a modal preview template and returns the markup as a string
+   * @param {object|null|undefined} ctx - The rendering context
+   * @returns {string} - The modal preview markup
+   */
+  renderModalPreview(ctx) {
+    return this.renderTemplate('modalPreview', ctx || {});
+  }
+
+  /**
+   * Returns the modal preview template.
+   * @returns {string} - The modal preview template.
+   */
   getModalPreviewTemplate() {
     const dataValue = this.component.type === 'password' ? this.dataValue.replace(/./g, '•') : this.dataValue;
-    const message = this.error ? {
-      level: 'error',
-      message: this.error.message,
-    } : '';
+    let modalLabel;
 
-    return this.renderTemplate('modalPreview', {
+    if (this.hasInput && this.component.validate?.required && !this.isPDFReadOnlyMode) {
+      modalLabel = { className: 'field-required' };
+    }
+
+    return this.renderModalPreview({
       previewText: this.getValueAsString(dataValue, { modalPreview: true }) || this.t('Click to set value'),
-      messages: message && this.renderTemplate('message', message)
+      messages: '',
+      labelInfo: modalLabel,
     });
   }
 
+  /**
+   * Performs a complete build of a component, which empties, renders, sets the content in the DOM, and then finally attaches events.
+   * @param {HTMLElement} element - The element to attach this component to.
+   * @returns {Promise<void>} - A promise that resolves when the component has been built.
+   */
   build(element) {
     element = element || this.element;
     this.empty(element);
@@ -1080,6 +1237,12 @@ export default class Component extends Element {
     return true;
   }
 
+  /**
+   * Renders a component as an HTML string.
+   * @param {string} children - The contents of all the children HTML as a string.
+   * @param {boolean} topLevel - If this is the topmost component that is being rendered.
+   * @returns {string} - The rendered HTML string of a component.
+   */
   render(children = `Unknown component: ${this.component.type}`, topLevel = false) {
     const isVisible = this.visible;
     this.rendered = true;
@@ -1105,30 +1268,58 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Creates the tooltip instance using tippy.js and returns it
+   * @param {HTMLElement} tooltipEl - HTML element to attach the tooltip
+   * @param {object|null|undefined} settings - tippy.js options
+   * @returns {import('tippy.js').Tippy} - tippy.js instance
+   */
+  createTooltip(tooltipEl, settings = {}) {
+    const tooltipAttribute = tooltipEl.getAttribute('data-tooltip');
+    const tooltipDataTitle = tooltipEl.getAttribute('data-title');
+    const tooltipText = this.interpolate(tooltipDataTitle || tooltipAttribute)
+                            .replace(/(?:\r\n|\r|\n)/g, '<br />');
+
+    return tippy(tooltipEl, {
+      allowHTML: true,
+      trigger: 'mouseenter click focus',
+      placement: 'right',
+      zIndex: 10000,
+      interactive: true,
+      ...settings,
+      content: this.t(this.sanitize(tooltipText), { _userInput: true }),
+    });
+  }
+
+  /**
+   * Attaches all the tooltips provided the refs object.
+   * @param {object} toolTipsRefs - The refs for the tooltips within your template.
+   * @returns {void}
+   */
   attachTooltips(toolTipsRefs) {
     toolTipsRefs?.forEach((tooltip, index) => {
       if (tooltip) {
-        const tooltipAttribute = tooltip.getAttribute('data-tooltip');
-        const tooltipDataTitle = tooltip.getAttribute('data-title');
-        const tooltipText = this.interpolate(tooltipDataTitle || tooltipAttribute)
-                                .replace(/(?:\r\n|\r|\n)/g, '<br />');
-
-        this.tooltips[index] = tippy(tooltip, {
-          allowHTML: true,
-          trigger: 'mouseenter click focus',
-          placement: 'right',
-          zIndex: 10000,
-          interactive: true,
-          content: this.t(tooltipText, { _userInput: true }),
-        });
+        this.tooltips[index] = this.createTooltip(tooltip);
       }
     });
   }
 
+  /**
+   * Create a new component modal for this component.
+   * @param {HTMLElement} element - The element to attach the modal to.
+   * @param {boolean} modalShouldBeOpened - TRUE if the modal should open immediately.
+   * @param {any} currentValue - The current value of the component.
+   * @returns {ComponentModal} - The created component modal.
+   */
   createComponentModal(element, modalShouldBeOpened, currentValue) {
-    return new ComponentModal(this, element, modalShouldBeOpened, currentValue);
+    return new ComponentModal(this, element, modalShouldBeOpened, currentValue, this._referenceAttributeName);
   }
 
+  /**
+   * Attaches all event listensers for this component to the DOM elements that were rendered.
+   * @param {HTMLElement} element - The element to attach the listeners to.
+   * @returns {Promise<void>} - Resolves when the component is done attaching to the DOM.
+   */
   attach(element) {
     if (!this.builderMode && !this.previewMode && this.component.modalEdit) {
       const modalShouldBeOpened = this.componentModal ? this.componentModal.isOpened : false;
@@ -1141,7 +1332,7 @@ export default class Component extends Element {
     }
 
     this.attached = true;
-    this.element = element;
+    this.setElement(element);
     element.component = this;
 
     // If this already has an id, get it from the dom. If SSR, it could be different from the initiated id.
@@ -1173,9 +1364,12 @@ export default class Component extends Element {
 
     this.addons.forEach((addon) => addon.attach(element));
 
-    return NativePromise.resolve();
+    return Promise.resolve();
   }
 
+  /**
+   * Restors the "focus" on a component after a redraw event has occured.
+   */
   restoreFocus() {
     const isFocused = this.root?.focusedComponent?.path === this.path;
     if (isFocused) {
@@ -1185,6 +1379,12 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Adds a keyboard shortcut to this component.
+   * @param {HTMLElement} element - The element to attach the keyboard shortcut to.
+   * @param {string} shortcut - The keyboard shortcut to add.
+   * @returns {void}
+   */
   addShortcut(element, shortcut) {
     // Avoid infinite recursion.
     if (!element || !this.root || (this.root === this)) {
@@ -1198,6 +1398,12 @@ export default class Component extends Element {
     this.root.addShortcut(element, shortcut);
   }
 
+  /**
+   * Removes a keyboard shortcut from this component.
+   * @param {HTMLElement} element - The element to remove the keyboard shortcut from.
+   * @param {string} shortcut - The keyboard shortcut to remove.
+   * @returns {void}
+   */
   removeShortcut(element, shortcut) {
     // Avoid infinite recursion.
     if (!element || (this.root === this)) {
@@ -1215,6 +1421,17 @@ export default class Component extends Element {
    * Remove all event handlers.
    */
   detach() {
+    // First iterate through each ref and delete the component so there are no dangling component references.
+    _.each(this.refs, (ref) => {
+      if (typeof ref === NodeList) {
+        ref.forEach((elem) => {
+          delete elem.component;
+        });
+      }
+      else if (ref) {
+        delete ref.component;
+      }
+    });
     this.refs = {};
     this.removeEventListeners();
     this.detachLogic();
@@ -1223,6 +1440,13 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Determines if the component should be refreshed based on the path of another component that changed.
+   * @param {string} refreshData - The path of the data that needs to trigger a refresh.
+   * @param {boolean} changed - Flag that is true if the data has been changed.
+   * @param {any} flags - The flags for the checkData procedure.
+   * @returns {void}
+   */
   checkRefresh(refreshData, changed, flags) {
     const changePath = _.get(changed, 'instance.path', false);
     // Don't let components change themselves.
@@ -1242,6 +1466,12 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Iterates over a list of changes, and determines if the component should be refreshed if it is configured to refresh on any of those components.
+   * @param {Array<any>} changes - The list of components that have changed.
+   * @param {any} flags - The checkData flags.
+   * @returns {void}
+   */
   checkRefreshOn(changes, flags = {}) {
     changes = changes || [];
     if (flags.noRefresh) {
@@ -1264,8 +1494,8 @@ export default class Component extends Element {
 
   /**
    * Refreshes the component with a new value.
-   *
-   * @param value
+   * @param {any} value - The latest value of the component to check if it needs to be refreshed.
+   * @returns {void}
    */
   refresh(value) {
     if (this.hasOwnProperty('refreshOnValue')) {
@@ -1289,8 +1519,8 @@ export default class Component extends Element {
    * with the components data and returns true if they are in the same context.
    *
    * Different rows of the same EditGrid, for example, are in different contexts.
-   *
-   * @param component
+   * @param {any} component - The component to check if it is in the same context as this component.
+   * @returns {boolean} - TRUE if the component is in the same context as this component.
    */
   inContext(component) {
     if (component.data === this.data) {
@@ -1307,14 +1537,35 @@ export default class Component extends Element {
     return false;
   }
 
+  /**
+   * Determines if we are in "view" only mode.
+   * @returns {boolean} - TRUE if we are in "view" only mode.
+   */
   get viewOnly() {
     return this.options.readOnly && this.options.viewAsHtml;
   }
 
+  /**
+   * Sets the HTMLElement for this component.
+   * @param {HTMLElement} element - The element that is attached to this component.
+   * @returns {void}
+   */
+  setElement(element) {
+    if (this.element) {
+      delete this.element.component;
+      delete this.element;
+    }
+    this.element = element;
+  }
+
+  /**
+   * Creates an element to hold the "view only" version of this component.
+   * @returns {HTMLElement} - The element for this component.
+   */
   createViewOnlyElement() {
-    this.element = this.ce('dl', {
+    this.setElement(this.ce('dl', {
       id: this.id
-    });
+    }));
 
     if (this.element) {
       // Ensure you can get the component info from the element.
@@ -1324,15 +1575,19 @@ export default class Component extends Element {
     return this.element;
   }
 
+  /**
+   * The default value for the "view only" mode of a component if the value is not provided.
+   * @returns {string} - The default value for this component.
+   */
   get defaultViewOnlyValue() {
     return '-';
   }
 
   /**
    * Uses the widget to determine the output string.
-   *
-   * @param value
-   * @return {*}
+   * @param {any} value - The current value of the component.
+   * @param {any} options - The options for getValueAsString.
+   * @returns {any|Array<any>} - The value as a string.
    */
   getWidgetValueAsString(value, options) {
     const noInputWidget = !this.refs.input || !this.refs.input[0] || !this.refs.input[0].widget;
@@ -1359,6 +1614,12 @@ export default class Component extends Element {
     return widget.getValueAsString(value, options);
   }
 
+  /**
+   * Returns the value of the component as a string.
+   * @param {any} value - The value for this component.
+   * @param {any} options - The options for this component.
+   * @returns {string} - The string representation of the value of this component.
+   */
   getValueAsString(value, options) {
     if (!value) {
       return '';
@@ -1377,6 +1638,12 @@ export default class Component extends Element {
     return this.sanitize(stringValue);
   }
 
+  /**
+   * Returns the string representation "view" of the component value.
+   * @param {any} value - The value of the component.
+   * @param {any} options - The options for this component.
+   * @returns {string} - The string representation of the value of this component.
+   */
   getView(value, options) {
     if (this.component.protected) {
       return '--- PROTECTED ---';
@@ -1384,18 +1651,24 @@ export default class Component extends Element {
     return this.getValueAsString(value, options);
   }
 
+  /**
+   * Updates the items list for this component. Useful for Select and other List component types.
+   * @param {...any} args - The arguments to pass to the onChange event.
+   * @returns {void}
+   */
   updateItems(...args) {
     this.restoreValue();
     this.onChange(...args);
   }
 
   /**
-   * @param {*} data
-   * @param {boolean} [forceUseValue=false] - if true, return 'value' property of the data
-   * @return {*}
+   * Returns the value for a specific item in a List type component.
+   * @param {any} data - The data for this component.
+   * @param {boolean} [forceUseValue] - if true, return 'value' property of the data
+   * @returns {any} - The value of the item.
    */
   itemValue(data, forceUseValue = false) {
-    if (_.isObject(data)) {
+    if (_.isObject(data) && !_.isArray(data)) {
       if (this.valueProperty) {
         return _.get(data, this.valueProperty);
       }
@@ -1408,6 +1681,11 @@ export default class Component extends Element {
     return data;
   }
 
+  /**
+   * Returns the item value for html mode.
+   * @param {any} value - The value for this component.
+   * @returns {any} - The value of the item for html mode.
+   */
   itemValueForHTMLMode(value) {
     if (Array.isArray(value)) {
       const values = value.map(item => Array.isArray(item) ? this.itemValueForHTMLMode(item) : this.itemValue(item));
@@ -1418,6 +1696,13 @@ export default class Component extends Element {
     return this.itemValue(value);
   }
 
+  /**
+   * Creates a modal to input the value of this component.
+   * @param {HTMLElement} element - The element to attach the modal to.
+   * @param {any} attr - A list of attributes to add to the modal.
+   * @param {boolean} confirm - If we should add a confirmation to the modal that keeps it from closing unless confirmed.
+   * @returns {HTMLElement} - The created modal element.
+   */
   createModal(element, attr, confirm) {
     const dialog = this.ce('div', attr || {});
     this.setContent(dialog, this.renderTemplate('dialog'));
@@ -1461,6 +1746,10 @@ export default class Component extends Element {
     return dialog;
   }
 
+  /**
+   * Uses CSS classes to show or hide an element.
+   * @returns {boolean} - TRUE if the element has been css removed.
+   */
   get optimizeRedraw() {
     if (this.options.optimizeRedraw && this.element && !this.visible) {
       this.addClass(this.element, 'formio-removed');
@@ -1474,7 +1763,7 @@ export default class Component extends Element {
    * @returns {string} - The class name of this component.
    */
   get className() {
-    let className = this.hasInput ? 'form-group has-feedback ' : '';
+    let className = this.hasInput ? `${this.transform('class', 'form-group')} has-feedback `: '';
     className += `formio-component formio-component-${this.component.type} `;
     // TODO: find proper way to avoid overriding of default type-based component styles
     if (this.key && this.key !== 'form') {
@@ -1500,7 +1789,7 @@ export default class Component extends Element {
 
   /**
    * Build the custom style from the layout values
-   * @return {string} - The custom style
+   * @returns {string} - The custom style
    */
   get customStyle() {
     let customCSS = '';
@@ -1512,13 +1801,25 @@ export default class Component extends Element {
     return customCSS;
   }
 
+  /**
+   * Returns the component condition operator settings if available.
+   * @returns {object} - The component condition operator settings.
+   */
+  static get serverConditionSettings() {
+    return Component.conditionOperatorsSettings;
+  }
+
+  /**
+   * Returns if the application is on a mobile device.
+   * @returns {boolean} - TRUE if the application is on a mobile device.
+   */
   get isMobile() {
     return isMobile();
   }
 
   /**
    * Returns the outside wrapping element of this component.
-   * @returns {HTMLElement}
+   * @returns {HTMLElement} - The wrapping element of this component.
    */
   getElement() {
     return this.element;
@@ -1526,9 +1827,8 @@ export default class Component extends Element {
 
   /**
    * Create an evaluation context for all script executions and interpolations.
-   *
-   * @param additional
-   * @return {*}
+   * @param {any} additional - Additional context to provide.
+   * @returns {any} - The evaluation context.
    */
   evalContext(additional) {
     return super.evalContext(Object.assign({
@@ -1551,21 +1851,32 @@ export default class Component extends Element {
 
   /**
    * Sets the pristine flag for this component.
-   *
-   * @param pristine {boolean} - TRUE to make pristine, FALSE not pristine.
+   * @param {boolean} pristine - TRUE to make pristine, FALSE not pristine.
    */
   setPristine(pristine) {
     this.pristine = pristine;
   }
 
+  /**
+   * Returns if the component is pristine.
+   * @returns {boolean} - TRUE if the component is pristine.
+   */
   get isPristine() {
     return this.pristine;
   }
 
+  /**
+   * Sets the dirty flag for this component.
+   * @param {boolean} dirty - TRUE to make dirty, FALSE not dirty.
+   */
   setDirty(dirty) {
     this.dirty = dirty;
   }
 
+  /**
+   * Returns if the component is dirty.
+   * @returns {boolean} - TRUE if the component is dirty.
+   */
   get isDirty() {
     return this.dirty;
   }
@@ -1581,6 +1892,12 @@ export default class Component extends Element {
     this.triggerRootChange();
   }
 
+  /**
+   * Returns the icon class for a given icon name.
+   * @param {string} name - The name of the icon you wish to fetch provided the icon class. This is the "font awesome" version of the name of the icon.
+   * @param {boolean} spinning - If the component should be spinning.
+   * @returns {string} - The icon class for the equivalent icon in the iconset we are using.
+   */
   iconClass(name, spinning) {
     const iconset = this.options.iconset || Templates.current.defaultIconset || 'fa';
     return Templates.current.hasOwnProperty('iconClass')
@@ -1588,6 +1905,11 @@ export default class Component extends Element {
       : this.options.iconset === 'fa' ? Templates.defaultTemplates.iconClass(iconset, name, spinning) : name;
   }
 
+  /**
+   * Returns the size css class names for our current template.
+   * @param {string} size - The size class name for the default iconset.
+   * @returns {string} - The size class for our component.
+   */
   size(size) {
     return Templates.current.hasOwnProperty('size')
       ? Templates.current.size(size)
@@ -1603,8 +1925,24 @@ export default class Component extends Element {
   }
 
   /**
+   * Returns the visible errors for this component.
+   * @returns {Array<object>} - The visible errors for this component.
+   */
+  get visibleErrors() {
+    return this._visibleErrors;
+  }
+
+  /**
+   * Returns all the errors for this component, visible or not.
+   * @returns {Array<object>} - All the errors for this component.
+   */
+  get errors() {
+    return this._errors;
+  }
+
+  /**
    * Returns the error label for this component.
-   * @return {*}
+   * @returns {string} - The error label for this component.
    */
   get errorLabel() {
     return this.t(this.component.errorLabel
@@ -1615,13 +1953,21 @@ export default class Component extends Element {
 
   /**
    * Get the error message provided a certain type of error.
-   * @param type
-   * @return {*}
+   * @param {string} type - The type of error to fetch the message for.
+   * @returns {string} - The error message configured for this component.
    */
   errorMessage(type) {
     return (this.component.errors && this.component.errors[type]) ? this.component.errors[type] :  type;
   }
 
+  /**
+   * Sets the content, innerHTML, of an element to the sanitized content.
+   * @param {HTMLElement} element - The element to set the innerHTML to.
+   * @param {string} content - The HTML string content that we wish to set.
+   * @param {boolean} forceSanitize - If we should force the content to be sanitized.
+   * @param {any} sanitizeOptions - The options for the sanitize function.
+   * @returns {boolean} - TRUE if the content was sanitized and set.
+   */
   setContent(element, content, forceSanitize, sanitizeOptions) {
     if (element instanceof HTMLElement) {
       element.innerHTML = this.sanitize(content, forceSanitize, sanitizeOptions);
@@ -1630,21 +1976,24 @@ export default class Component extends Element {
     return false;
   }
 
+  /**
+   * Restores the caret position in the input element after a refresh occurs.
+   */
   restoreCaretPosition() {
     if (this.root?.currentSelection) {
       if (this.refs.input?.length) {
         const { selection, index } = this.root.currentSelection;
         let input = this.refs.input[index];
-        const isInputRangeSelectable = /text|search|password|tel|url/i.test(input.type || '');
+        const isInputRangeSelectable = (i) => /text|search|password|tel|url/i.test(i?.type || '');
         if (input) {
-          if (isInputRangeSelectable) {
+          if (isInputRangeSelectable(input)) {
             input.setSelectionRange(...selection);
           }
         }
         else {
           input = this.refs.input[this.refs.input.length];
           const lastCharacter = input.value?.length || 0;
-          if (isInputRangeSelectable) {
+          if (isInputRangeSelectable(input)) {
             input.setSelectionRange(lastCharacter, lastCharacter);
           }
         }
@@ -1652,11 +2001,15 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Redraw the component.
+   * @returns {Promise<void>} - A promise that resolves when the component is done redrawing.
+   */
   redraw() {
     // Don't bother if we have not built yet.
     if (!this.element || !this.element.parentNode || this.optimizeRedraw) {
       // Return a non-resolving promise.
-      return NativePromise.resolve();
+      return Promise.resolve();
     }
     this.detach();
     this.emit('redraw');
@@ -1664,10 +2017,14 @@ export default class Component extends Element {
     const parent = this.element.parentNode;
     const index = Array.prototype.indexOf.call(parent.children, this.element);
     this.element.outerHTML = this.sanitize(this.render());
-    this.element = parent.children[index];
+    this.setElement(parent.children[index]);
     return this.attach(this.element);
   }
 
+  /**
+   * Rebuild and redraw a component.
+   * @returns {Promise<void>} - A promise that resolves when the component is done rebuilding and redrawing.
+   */
   rebuild() {
     this.destroy();
     this.init();
@@ -1675,12 +2032,21 @@ export default class Component extends Element {
     return this.redraw();
   }
 
+  /**
+   * Removes all event listeners attached to this component.
+   */
   removeEventListeners() {
     super.removeEventListeners();
     this.tooltips.forEach(tooltip => tooltip.destroy());
     this.tooltips = [];
   }
 
+  /**
+   * Returns if the dom node has the classes provided.
+   * @param {HTMLElement} element - The element to check for the class.
+   * @param {string} className - The name of the class to check.
+   * @returns {boolean|void} - TRUE if the element has the class.
+   */
   hasClass(element, className) {
     if (!element) {
       return;
@@ -1689,6 +2055,12 @@ export default class Component extends Element {
     return super.hasClass(element, this.transform('class', className));
   }
 
+  /**
+   * Adds a class to an HTML element.
+   * @param {HTMLElement} element - The dom element to add the class to.
+   * @param {string} className - The class name you wish to add.
+   * @returns {this|void} - The component instance.
+   */
   addClass(element, className) {
     if (!element) {
       return;
@@ -1697,6 +2069,12 @@ export default class Component extends Element {
     return super.addClass(element, this.transform('class', className));
   }
 
+  /**
+   * Removes a class from an element.
+   * @param {HTMLElement} element - The element to remove the class from.
+   * @param {string} className - The class name to remove.
+   * @returns {this|void} - The component instance.
+   */
   removeClass(element, className) {
     if (!element) {
       return;
@@ -1707,8 +2085,7 @@ export default class Component extends Element {
 
   /**
    * Determines if this component has a condition defined.
-   *
-   * @return {null}
+   * @returns {boolean} - TRUE if the component has a condition defined.
    */
   hasCondition() {
     if (this._hasCondition !== null) {
@@ -1721,9 +2098,9 @@ export default class Component extends Element {
 
   /**
    * Check if this component is conditionally visible.
-   *
-   * @param data
-   * @return {boolean}
+   * @param {any} data - The data to check against.
+   * @param {any} row - The row data to check against.
+   * @returns {boolean} - TRUE if the component is conditionally visible.
    */
   conditionallyVisible(data, row) {
     data = data || this.rootValue;
@@ -1739,10 +2116,9 @@ export default class Component extends Element {
    * Checks the condition of this component.
    *
    * TODO: Switch row and data parameters to be consistent with other methods.
-   *
-   * @param row - The row contextual data.
-   * @param data - The global data object.
-   * @return {boolean} - True if the condition applies to this component.
+   * @param {any} row - The row contextual data.
+   * @param {any} data - The global data object.
+   * @returns {boolean} - True if the condition applies to this component.
    */
   checkCondition(row, data) {
     return FormioUtils.checkCondition(
@@ -1756,6 +2132,10 @@ export default class Component extends Element {
 
   /**
    * Check for conditionals and hide/show the element based on those conditions.
+   * @param {any} data - The data to check against.
+   * @param {any} flags - The flags passed to checkData function.
+   * @param {any} row - The row data to check against.
+   * @returns {boolean} - TRUE if the component is visible.
    */
   checkComponentConditions(data, flags, row) {
     data = data || this.rootValue;
@@ -1778,8 +2158,10 @@ export default class Component extends Element {
 
   /**
    * Checks conditions for this component and any sub components.
-   * @param args
-   * @return {boolean}
+   * @param {any} data - The data to check against.
+   * @param {any} flags - The flags passed to checkData function.
+   * @param {any} row - The row data to check against.
+   * @returns {boolean} - TRUE if the component is visible.
    */
   checkConditions(data, flags, row) {
     data = data || this.rootValue;
@@ -1788,18 +2170,21 @@ export default class Component extends Element {
     return this.checkComponentConditions(data, flags, row);
   }
 
+  /**
+   * Returns the component logic if applicable.
+   * @returns {Array<object>} - The component logic.
+   */
   get logic() {
     return this.component.logic || [];
   }
 
   /**
    * Check all triggers and apply necessary actions.
-   *
-   * @param data
+   * @param {any} data - The data to check against.
+   * @param {any} row - The row data to check against.
+   * @returns {boolean|void} - TRUE if the component was altered.
    */
-  fieldLogic(data, row) {
-    data = data || this.rootValue;
-    row = row || this.data;
+  fieldLogic(data = this.rootValue, row = this.data) {
     const logics = this.logic;
 
     // If there aren't logic, don't go further.
@@ -1836,6 +2221,10 @@ export default class Component extends Element {
     return changed;
   }
 
+  /**
+   * Retuns if the browser is Internet Explorer.
+   * @returns {boolean} - TRUE if the browser is IE.
+   */
   isIE() {
     if (typeof window === 'undefined') {
       return false;
@@ -1866,6 +2255,12 @@ export default class Component extends Element {
     return false;
   }
 
+  /**
+   * Defines the logic action value through evaluation.
+   * @param {object} action - The action within the Logic system to perform.
+   * @param {object} argsObject - The arguments to pass to the evaluation.
+   * @returns {any} - The result of the evaluation.
+   */
   defineActionValue(action, argsObject) {
     return this.evaluate(
       action.value,
@@ -1874,6 +2269,15 @@ export default class Component extends Element {
     );
   }
 
+  /**
+   * Apply the actions of Logic for a component once the conditions have been met.
+   * @param {object} newComponent - The new component to apply the actions to.
+   * @param {Array<object>} actions - An array of actions
+   * @param {any} result - The result of the conditional check in order to evaluate the actions.
+   * @param {any} row - The contextual row data for this component.
+   * @param {any} data - The global data object for the submission.
+   * @returns {boolean} - TRUE if the component was altered.
+   */
   applyActions(newComponent, actions, result, row, data) {
     data = data || this.rootValue;
     row = row || this.data;
@@ -1979,9 +2383,8 @@ export default class Component extends Element {
 
   /**
    * Add a new input error to this element.
-   *
-   * @param message
-   * @param dirty
+   * @param {Array<object>|string} messages - An array of messages to add to the element.
+   * @returns {void}
    */
   addMessages(messages) {
     if (!messages) {
@@ -2003,18 +2406,32 @@ export default class Component extends Element {
     messages = _.uniqBy(messages, message => message.message);
 
     if (this.refs.messageContainer) {
-      this.setContent(this.refs.messageContainer, messages.map((message) =>
-        this.renderTemplate('message', message)
+      this.setContent(this.refs.messageContainer, messages.map((message) => {
+        return this.renderTemplate('message', { ...message });
+      }
       ).join(''));
     }
   }
 
+  /**
+   * Sets the form input widget error classes.
+   * @param {Array<HTMLElement>} elements - An array of DOM elements to set the error classes on.
+   * @param {boolean} dirty - If the input is dirty.
+   * @param {boolean} hasErrors - If the input has errors.
+   * @param {boolean} hasMessages - If the input has messages.
+   * @param {HTMLElement} element - The wrapper element for all the other elements passed in first argument.
+   * @returns {void}
+   */
   setErrorClasses(elements, dirty, hasErrors, hasMessages, element = this.element) {
     this.clearErrorClasses();
     elements.forEach((element) => {
       this.setElementInvalid(this.performInputMapping(element), false);
     });
     this.setInputWidgetErrorClasses(elements, hasErrors);
+    // do not set error classes for hidden components
+    if (!this.visible) {
+      return;
+    }
 
     if (hasErrors) {
       // Add error classes
@@ -2034,6 +2451,12 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Adds the classes necessary to mark an element as invalid.
+   * @param {HTMLElement} element - The element you wish to add the invalid classes to.
+   * @param {boolean} invalid - TRUE if the component is invalid, FALSE otherwise.
+   * @returns {void}
+   */
   setElementInvalid(element, invalid) {
     if (!element) return;
 
@@ -2046,6 +2469,9 @@ export default class Component extends Element {
     element.setAttribute('aria-invalid', invalid ? 'true' : 'false');
   }
 
+  /**
+   * Clears the components data if it is conditionally hidden AND clearOnHide is set to true for this component.
+   */
   clearOnHide() {
     // clearOnHide defaults to true for old forms (without the value set) so only trigger if the value is false.
     if (
@@ -2067,15 +2493,26 @@ export default class Component extends Element {
     }
   }
 
+  /**
+   * Triggers a debounced onChange event for the root component (usually Webform).
+   * @param {...any} args - The arguments to pass to the onChange event.
+   */
   triggerRootChange(...args) {
     if (this.options.onChange) {
       this.options.onChange(...args);
     }
-    else if (this.root) {
+    else if (this.root && this.root.triggerChange) {
       this.root.triggerChange(...args);
     }
   }
 
+  /**
+   * Called when the component value has been changed. This will then trigger the root level onChange handler which
+   * propagates the checkData methods for the full component tree.
+   * @param {any} flags - The flags for the change event propagation.
+   * @param {boolean} fromRoot - If the change event is from the root component.
+   * @returns {boolean} - TRUE if the component has changed.
+   */
   onChange(flags, fromRoot) {
     flags = flags || {};
     if (flags.modified) {
@@ -2086,7 +2523,7 @@ export default class Component extends Element {
     }
 
     // If we are supposed to validate on blur, then don't trigger validation yet.
-    if (this.component.validateOn === 'blur' && !this.errors.length) {
+    if (this.component.validateOn === 'blur') {
       flags.noValidate = true;
     }
 
@@ -2184,16 +2621,16 @@ export default class Component extends Element {
       'ckeditor',
       isIEBrowser ? 'CKEDITOR' : 'ClassicEditor',
       _.get(this.options, 'editors.ckeditor.src',
-      CKEDITOR_URL
+      `${Formio.cdn.ckeditor}/ckeditor.js`
     ), true)
       .then(() => {
         if (!element.parentNode) {
-          return NativePromise.reject();
+          return Promise.reject();
         }
         if (isIEBrowser) {
           const editor = CKEDITOR.replace(element);
           editor.on('change', () => onChange(editor.getData()));
-          return NativePromise.resolve(editor);
+          return Promise.resolve(editor);
         }
         else {
           return ClassicEditor.create(element, settings).then(editor => {
@@ -2216,20 +2653,20 @@ export default class Component extends Element {
     };
     // Lazy load the quill css.
     Formio.requireLibrary(`quill-css-${settings.theme}`, 'Quill', [
-      { type: 'styles', src: `${QUILL_URL}/quill.${settings.theme}.css` }
+      { type: 'styles', src: `${Formio.cdn.quill}/quill.${settings.theme}.css` }
     ], true);
 
     // Lazy load the quill library.
-    return Formio.requireLibrary('quill', 'Quill', _.get(this.options, 'editors.quill.src', `${QUILL_URL}/quill.min.js`), true)
+    return Formio.requireLibrary('quill', 'Quill', _.get(this.options, 'editors.quill.src', `${Formio.cdn.quill}/quill.min.js`), true)
       .then(() => {
-        return Formio.requireLibrary('quill-table', 'Quill', QUILL_TABLE_URL, true)
+        return Formio.requireLibrary('quill-table', 'Quill', `${Formio.cdn.baseUrl}/quill/quill-table.js`, true)
           .then(() => {
             if (!element.parentNode) {
-              return NativePromise.reject();
+              return Promise.reject();
             }
             this.quill = new Quill(element, isIEBrowser ? { ...settings, modules: {} } : settings);
 
-            /** This block of code adds the [source] capabilities.  See https://codepen.io/anon/pen/ZyEjrQ **/
+            /** This block of code adds the [source] capabilities.  See https://codepen.io/anon/pen/ZyEjrQ */
             const txtArea = document.createElement('textarea');
             txtArea.setAttribute('class', 'quill-source-code');
             this.quill.addContainer('ql-custom').appendChild(txtArea);
@@ -2238,12 +2675,12 @@ export default class Component extends Element {
               this.addEventListener(qlSource, 'click', (event) => {
                 event.preventDefault();
                 if (txtArea.style.display === 'inherit') {
-                  this.quill.setContents(this.quill.clipboard.convert(txtArea.value));
+                  this.quill.setContents(this.quill.clipboard.convert({ html: txtArea.value }));
                 }
                 txtArea.style.display = (txtArea.style.display === 'none') ? 'inherit' : 'none';
               });
             }
-            /** END CODEBLOCK **/
+            /** END CODEBLOCK */
 
             // Make sure to select cursor when they click on the element.
             this.addEventListener(element, 'click', () => this.quill.focus());
@@ -2277,7 +2714,7 @@ export default class Component extends Element {
       }
     }
     settings = _.merge(this.wysiwygDefault.ace, _.get(this.options, 'editors.ace.settings', {}), settings || {});
-    return Formio.requireLibrary('ace', 'ace', _.get(this.options, 'editors.ace.src', ACE_URL), true)
+    return Formio.requireLibrary('ace', 'ace', _.get(this.options, 'editors.ace.src', `${Formio.cdn.ace}/ace.js`), true)
       .then((editor) => {
         editor = editor.edit(element);
         editor.removeAllListeners('change');
@@ -2297,8 +2734,7 @@ export default class Component extends Element {
 
   /**
    * The empty value for this component.
-   *
-   * @return {null}
+   * @returns {null} - The empty value for this component.
    */
   get emptyValue() {
     return null;
@@ -2306,16 +2742,16 @@ export default class Component extends Element {
 
   /**
    * Returns if this component has a value set.
-   *
+   * @param {any} data - The global data object.
+   * @returns {boolean} - TRUE if a value is set.
    */
   hasValue(data) {
-    return _.has(data || this.data, this.key);
+    return !_.isUndefined(_.get(data || this.data, this.key));
   }
 
   /**
    * Get the data value at the root level.
-   *
-   * @return {*}
+   * @returns {*} - The root value for the component, typically the Webform data object.
    */
   get rootValue() {
     return this.root ? this.root.data : this.data;
@@ -2327,7 +2763,7 @@ export default class Component extends Element {
 
   /**
    * Get the static value of this component.
-   * @return {*}
+   * @returns {*} - The value for this component.
    */
   get dataValue() {
     if (
@@ -2348,8 +2784,7 @@ export default class Component extends Element {
 
   /**
    * Sets the static value of this component.
-   *
-   * @param value
+   * @param {*} value - The value to set for this component.
    */
   set dataValue(value) {
     if (
@@ -2372,8 +2807,8 @@ export default class Component extends Element {
 
   /**
    * Splice a value from the dataValue.
-   *
-   * @param index
+   * @param {number} index - The index to splice for an array component values.
+   * @param {*} flags - The flags to use when splicing the value.
    */
   splice(index, flags = {}) {
     if (this.hasValue()) {
@@ -2426,11 +2861,13 @@ export default class Component extends Element {
 
     const checkMask = (value) => {
       if (typeof value === 'string') {
-        const placeholderChar = this.placeholderChar;
+        if (this.component.type !== 'textfield') {
+          const placeholderChar = this.placeholderChar;
 
-        value = conformToMask(value, this.defaultMask, { placeholderChar }).conformedValue;
-        if (!FormioUtils.matchInputMask(value, this.defaultMask)) {
-          value = '';
+          value = conformToMask(value, this.defaultMask, { placeholderChar }).conformedValue;
+          if (!FormioUtils.matchInputMask(value, this.defaultMask)) {
+            value = '';
+          }
         }
       }
       else {
@@ -2454,8 +2891,7 @@ export default class Component extends Element {
 
   /**
    * Get the input value of this component.
-   *
-   * @return {*}
+   * @returns {*} - The value for the component.
    */
   getValue() {
     if (!this.hasInput || this.viewOnly || !this.refs.input || !this.refs.input.length) {
@@ -2479,9 +2915,8 @@ export default class Component extends Element {
 
   /**
    * Get the value at a specific index.
-   *
-   * @param index
-   * @returns {*}
+   * @param {number} index - For an array component or multiple values, this returns the value at a specific index.
+   * @returns {*} - The value at the specified index.
    */
   getValueAt(index) {
     const input = this.performInputMapping(this.refs.input[index]);
@@ -2490,11 +2925,9 @@ export default class Component extends Element {
 
   /**
    * Set the value of this component.
-   *
-   * @param value
-   * @param flags
-   *
-   * @return {boolean} - If the value changed.
+   * @param {*} value - The value to set for this component.
+   * @param {*} flags - The flags to use when setting the value.
+   * @returns {boolean} - If the value changed.
    */
   setValue(value, flags = {}) {
     const changed = this.updateValue(value, flags);
@@ -2528,9 +2961,9 @@ export default class Component extends Element {
 
   /**
    * Set the value at a specific index.
-   *
-   * @param index
-   * @param value
+   * @param {number} index - The index to set the value at.
+   * @param {*} value - The value to set at the specified index.
+   * @param {*} flags - The flags to use when setting the value.
    */
   setValueAt(index, value, flags = {}) {
     if (!flags.noDefault && (value === null || value === undefined) && !this.component.multiple) {
@@ -2540,11 +2973,11 @@ export default class Component extends Element {
     const input = this.performInputMapping(this.refs.input[index]);
     const valueMaskInput = this.refs.valueMaskInput;
 
-    if (valueMaskInput?.mask && value) {
+    if (valueMaskInput?.mask && valueMaskInput.mask.textMaskInputElement && value) {
       valueMaskInput.mask.textMaskInputElement.update(value);
     }
 
-    if (input.mask && value) {
+    if (input.mask && input.mask.textMaskInputElement && value) {
       input.mask.textMaskInputElement.update(value);
     }
     else if (input.widget && input.widget.setValue) {
@@ -2584,9 +3017,8 @@ export default class Component extends Element {
 
   /**
    * Normalize values coming into updateValue.
-   *
-   * @param value
-   * @return {*}
+   * @param {*} value - The value to normalize before setting.
+   * @returns {*} - The normalized value.
    */
   normalizeValue(value) {
     if (this.component.multiple && !Array.isArray(value)) {
@@ -2597,8 +3029,9 @@ export default class Component extends Element {
 
   /**
    * Update a value of this component.
-   *
-   * @param flags
+   * @param {*} value - The value to update.
+   * @param {*} flags - The flags to use when updating the value.
+   * @returns {boolean} - If the value changed.
    */
   updateComponentValue(value, flags = {}) {
     let newValue = (!flags.resetValue && (value === undefined || value === null)) ? this.getValue() : value;
@@ -2618,9 +3051,8 @@ export default class Component extends Element {
 
   /**
    * Updates the value of this component plus all sub-components.
-   *
-   * @param args
-   * @return {boolean}
+   * @param {...any} args - The arguments to pass to updateValue.
+   * @returns {boolean} - If the value changed.
    */
   updateValue(...args) {
     return this.updateComponentValue(...args);
@@ -2640,7 +3072,7 @@ export default class Component extends Element {
    */
   resetValue() {
     this.unset();
-    this.setValue(this.emptyValue, {
+    this.setValue(this.defaultValue || this.emptyValue, {
       noUpdateEvent: true,
       noValidate: true,
       resetValue: true
@@ -2649,10 +3081,9 @@ export default class Component extends Element {
 
   /**
    * Determine if the value of this component has changed.
-   *
-   * @param newValue
-   * @param oldValue
-   * @return {boolean}
+   * @param {*} newValue - The new value to check.
+   * @param {*} oldValue - The existing value of the component.
+   * @returns {boolean} - TRUE if the value has changed.
    */
   hasChanged(newValue, oldValue) {
     if (
@@ -2675,24 +3106,21 @@ export default class Component extends Element {
 
   /**
    * Update the value on change.
-   *
-   * @param flags
+   * @param {*} flags - The flags to use when triggering the on change event.
+   * @param {boolean} changed - If the value has changed.
+   * @returns {boolean} - If the value changed.
    */
   updateOnChange(flags = {}, changed = false) {
     if (!flags.noUpdateEvent && changed) {
+      if (flags.fromSubmission) {
+        // Reset the errors when a submission has been made and allow it to revalidate.
+        this._errors = [];
+      }
       this.triggerChange(flags);
       return true;
     }
     return false;
   }
-
-  /**
-   * Perform a calculated value operation.
-   *
-   * @param data - The global data object.
-   *
-   * @return {boolean} - If the value changed during calculation.
-   */
 
   convertNumberOrBoolToString(value) {
     if (typeof value === 'number' || typeof value === 'boolean' ) {
@@ -2705,23 +3133,37 @@ export default class Component extends Element {
       return this.evaluate(this.component.calculateValue, {
         value: dataValue,
         data,
-        row: row || this.data
+        row: row || this.data,
+        submission: this.root?._submission || {
+          data: this.rootValue
+        }
       }, 'value');
   }
 
   /* eslint-disable max-statements */
   calculateComponentValue(data, flags, row) {
+    // Skip value calculation for the component if we don't have entire form data set or in builder mode
+    if (this.builderMode || _.isUndefined(_.get(this, 'root.data'))) {
+      return false;
+    }
     // If no calculated value or
     // hidden and set to clearOnHide (Don't calculate a value for a hidden field set to clear when hidden)
     const { clearOnHide } = this.component;
     const shouldBeCleared = !this.visible && clearOnHide;
     const allowOverride = _.get(this.component, 'allowCalculateOverride', false);
 
+    if (shouldBeCleared) {
+      // remove calculated value so that the value is recalculated once component becomes visible
+      if (this.hasOwnProperty('calculatedValue') && allowOverride) {
+        _.unset(this, 'calculatedValue');
+      }
+      return false;
+    }
+
     // Handle all cases when calculated values should not fire.
     if (
       (this.options.readOnly && !this.options.pdf && !this.component.calculateValue) ||
       !(this.component.calculateValue || this.component.calculateValueVariable) ||
-      shouldBeCleared ||
       (this.options.server && !this.component.calculateServer) ||
       (flags.dataSourceInitialLoading && allowOverride)
     ) {
@@ -2731,6 +3173,10 @@ export default class Component extends Element {
     const dataValue = this.dataValue;
     // Calculate the new value.
     let calculatedValue = this.doValueCalculation(dataValue, data, row, flags);
+
+    if (this.options.readOnly && dataValue && !calculatedValue) {
+      return false;
+    }
 
     if (_.isNil(calculatedValue)) {
       calculatedValue = this.emptyValue;
@@ -2751,7 +3197,7 @@ export default class Component extends Element {
         return false;
       }
 
-      const firstPass = (this.calculatedValue === undefined);
+      const firstPass = (this.calculatedValue === undefined) || flags.resetValue;
       if (firstPass) {
         this.calculatedValue = null;
       }
@@ -2767,6 +3213,7 @@ export default class Component extends Element {
 
       // Check to ensure that the calculated value is different than the previously calculated value.
       if (previousCalculatedValue && previousChanged && !calculationChanged) {
+        this.calculatedValue = null;
         return false;
       }
 
@@ -2776,7 +3223,7 @@ export default class Component extends Element {
 
       if (fromSubmission) {
         // If we set value from submission and it differs from calculated one, set the calculated value to prevent overriding dataValue in the next pass
-        this.calculatedValue = calculatedValue;
+        this.calculatedValue = fastCloneDeep(calculatedValue);
         return false;
       }
 
@@ -2787,10 +3234,10 @@ export default class Component extends Element {
       }
     }
 
-    this.calculatedValue = calculatedValue;
+    this.calculatedValue = fastCloneDeep(calculatedValue);
 
     if (changed) {
-      if (!flags.noPristineChangeOnModified) {
+      if (!flags.noPristineChangeOnModified && this.root.initialized) {
         this.pristine = false;
       }
 
@@ -2803,9 +3250,10 @@ export default class Component extends Element {
 
   /**
    * Performs calculations in this component plus any child components.
-   *
-   * @param args
-   * @return {boolean}
+   * @param {*} data - The data to perform the calculation with.
+   * @param {*} flags - The flags to use when calculating the value.
+   * @param {*} row - The contextual row data to use when performing the calculation.
+   * @returns {boolean} - TRUE if the value changed.
    */
   calculateValue(data, flags, row) {
     data = data || this.rootValue;
@@ -2816,7 +3264,7 @@ export default class Component extends Element {
 
   /**
    * Get this component's label text.
-   *
+   * @returns {string} - The label text for this component.
    */
   get label() {
     return this.component.label;
@@ -2824,8 +3272,7 @@ export default class Component extends Element {
 
   /**
    * Set this component's label text and render it.
-   *
-   * @param value - The new label text.
+   * @param {string} value - The new label text.
    */
   set label(value) {
     this.component.label = value;
@@ -2836,7 +3283,7 @@ export default class Component extends Element {
 
   /**
    * Get FormioForm element at the root of this component tree.
-   *
+   * @returns {*} root - The root component to search from.
    */
   getRoot() {
     return this.root;
@@ -2844,10 +3291,11 @@ export default class Component extends Element {
 
   /**
    * Returns the invalid message, or empty string if the component is valid.
-   *
-   * @param data
-   * @param dirty
-   * @return {*}
+   * @param {*} data - The data to check if the component is valid.
+   * @param {boolean} dirty - If the component is dirty.
+   * @param {boolean} ignoreCondition - If conditions for the component should be ignored when checking validity.
+   * @param {*} row - Contextual row data for this component.
+   * @returns {string} - The message to show when the component is invalid.
    */
   invalidMessage(data, dirty, ignoreCondition, row) {
     if (!ignoreCondition && !this.checkCondition(row, data)) {
@@ -2864,83 +3312,189 @@ export default class Component extends Element {
       return '';
     }
 
-    return _.map(Validator.checkComponent(this, data), 'message').join('\n\n');
+    const validationScope = { errors: [] };
+    processOneSync({
+      component: this.component,
+      data,
+      row,
+      path: this.path || this.component.key,
+      scope: validationScope,
+      instance: this,
+      processors: [
+        validateProcessInfo
+      ]
+    });
+    const errors = validationScope.errors;
+    const interpolatedErrors = FormioUtils.interpolateErrors(this.component, errors, this.t.bind(this));
+
+    return _.map(interpolatedErrors, 'message').join('\n\n');
   }
 
   /**
    * Returns if the component is valid or not.
-   *
-   * @param data
-   * @param dirty
-   * @return {boolean}
+   * @param {*} data - The data to check if the component is valid.
+   * @param {boolean} dirty - If the component is dirty.
+   * @returns {boolean} - TRUE if the component is valid.
    */
   isValid(data, dirty) {
     return !this.invalidMessage(data, dirty);
   }
 
-  setComponentValidity(messages, dirty, silentCheck) {
-    const hasErrors = !!messages.filter(message => message.level === 'error' && !message.fromServer).length;
-    if (messages.length && (!silentCheck || this.error) && (!this.isEmpty(this.defaultValue) || dirty || !this.pristine)) {
-      this.setCustomValidity(messages, dirty);
+  setComponentValidity(errors, dirty, silentCheck) {
+    if (silentCheck) {
+      return [];
     }
-    else if (!silentCheck) {
-      this.setCustomValidity('');
+    const messages = errors.filter(message => !message.fromServer);
+    if (errors.length && !!messages.length && (!this.isEmpty(this.defaultValue) || dirty || !this.pristine)) {
+      return this.setCustomValidity(messages, dirty);
     }
+    else {
+      return this.setCustomValidity('');
+    }
+  }
 
-    return !hasErrors;
+  /**
+   * Interpolate errors from the validation methods.
+   * @param {Array<any>} errors - An array of errors to interpolate.
+   * @returns {Array<any>} - The interpolated errors.
+   */
+  interpolateErrors(errors) {
+    const interpolatedErrors = FormioUtils.interpolateErrors(this.component, errors, this.t.bind(this));
+    return this.serverErrors?.length ? [...interpolatedErrors, ...this.serverErrors] : interpolatedErrors;
+  }
+
+  /**
+   * Show component validation errors.
+   * @param {*} errors - An array of errors that have occured.
+   * @param {*} data - The root submission data.
+   * @param {*} row - The contextual row data.
+   * @param {*} flags - The flags to perform validation.
+   * @returns {boolean} - TRUE if the component is valid.
+   */
+  showValidationErrors(errors, data, row, flags) {
+    if (flags.silentCheck) {
+      return [];
+    }
+    if (this.options.alwaysDirty) {
+      flags.dirty = true;
+    }
+    if (flags.fromSubmission && this.hasValue(data)) {
+      flags.dirty = true;
+    }
+    this.setDirty(flags.dirty);
+    return this.setComponentValidity(errors, flags.dirty, flags.silentCheck, flags.fromSubmission);
+  }
+
+  /**
+   * Perform a component validation.
+   * @param {*} data - The root data you wish to use for this component.
+   * @param {*} row - The contextual row data you wish to use for this component.
+   * @param {*} flags - The flags to control the behavior of the validation.
+   * @returns {Array<any>} - An array of errors if the component is invalid.
+   */
+  validateComponent(data = null, row = null, flags = {}) {
+    data = data || this.rootValue;
+    row = row || this.data;
+    const { async = false } = flags;
+    if (this.shouldSkipValidation(data, row, flags)) {
+      return async ? Promise.resolve([]) : [];
+    }
+    const processContext = {
+      component: this.component,
+      data,
+      row,
+      value: this.validationValue,
+      path: this.path || this.component.key,
+      instance: this,
+      scope: { errors: [] },
+      processors: [
+        validateProcessInfo
+      ]
+    };
+
+    if (async) {
+      return processOne(processContext).then(() => {
+        this._errors = this.interpolateErrors(processContext.scope.errors);
+        return this._errors;
+      });
+    }
+    processOneSync(processContext);
+    this._errors = this.interpolateErrors(processContext.scope.errors);
+    return this._errors;
   }
 
   /**
    * Checks the validity of this component and sets the error message if it is invalid.
-   *
-   * @param data
-   * @param dirty
-   * @param row
-   * @return {boolean}
+   * @param {*} data - The data to check if the component is valid.
+   * @param {boolean} dirty - If the component is dirty.
+   * @param {*} row - The contextual row data for this component.
+   * @param {*} flags - The flags to use when checking the validity.
+   * @param {Array<any>} allErrors - An array of all errors that have occured so that it can be appended when another one occurs here.
+   * @returns {boolean} - TRUE if the component is valid.
    */
-  checkComponentValidity(data, dirty, row, options = {}) {
+  checkComponentValidity(data = null, dirty = false, row = null, flags = {}, allErrors = []) {
     data = data || this.rootValue;
     row = row || this.data;
-    const { async = false, silentCheck = false } = options;
-
-    if (this.shouldSkipValidation(data, dirty, row)) {
-      this.setCustomValidity('');
-      return async ? NativePromise.resolve(true) : true;
+    flags.dirty = dirty || false;
+    if (flags.async) {
+      return this.validateComponent(data, row, flags).then((errors) => {
+        allErrors.push(...errors);
+        if (this.parent && this.parent.childErrors) {
+          if (errors.length) {
+            this.parent.childErrors.push(...errors);
+          }
+          else {
+            _.remove(this.parent.childErrors, (err) => err.component.key === this.component.key);
+          }
+        }
+        this.showValidationErrors(errors, data, row, flags);
+        return errors.length === 0;
+      });
     }
-
-    const check = Validator.checkComponent(this, data, row, true, async);
-    let validations = check;
-
-    if (this.serverErrors?.length) {
-      validations = check.concat(this.serverErrors);
+    else {
+      const errors = this.validateComponent(data, row, flags);
+      this.showValidationErrors(errors, data, row, flags);
+      allErrors.push(...errors);
+      if (this.parent && this.parent.childErrors) {
+        if (errors.length) {
+          this.parent.childErrors.push(...errors);
+        }
+        else {
+          _.remove(this.parent.childErrors, (err) => err.component.key === this.component.key);
+        }
+      }
+      return errors.length === 0;
     }
-    return async ?
-    validations.then((messages) => this.setComponentValidity(messages, dirty, silentCheck)) :
-      this.setComponentValidity(validations, dirty, silentCheck);
   }
 
-  checkValidity(data, dirty, row, silentCheck) {
+  /**
+   * Checks the validity of the component.
+   * @param {*} data - The data to check if the component is valid.
+   * @param {boolean} dirty - If the component is dirty.
+   * @param {*} row - The contextual row data for this component.
+   * @param {boolean} silentCheck - If the check should be silent and not set the error messages.
+   * @param {Array<any>} errors - An array of all errors that have occured so that it can be appended when another one occurs here.
+   * @returns {boolean} - TRUE if the component is valid.
+   */
+  checkValidity(data = null, dirty = false, row = null, silentCheck = false, errors = []) {
     data = data || this.rootValue;
     row = row || this.data;
-    const isValid = this.checkComponentValidity(data, dirty, row, { silentCheck });
-    this.checkModal();
-    return isValid;
+    return this.checkComponentValidity(data, dirty, row, { silentCheck }, errors);
   }
 
-  checkAsyncValidity(data, dirty, row, silentCheck) {
-    return NativePromise.resolve(this.checkComponentValidity(data, dirty, row, { async: true, silentCheck }));
+  checkAsyncValidity(data = null, dirty = false, row = null, silentCheck = false, errors = []) {
+    return this.checkComponentValidity(data, dirty, row, { async: true, silentCheck }, errors);
   }
 
   /**
    * Check the conditions, calculations, and validity of a single component and triggers an update if
    * something changed.
-   *
-   * @param data - The root data of the change event.
-   * @param flags - The flags from this change event.
-   *
-   * @return boolean - If component is valid or not.
+   * @param {*} data - The root data of the change event.
+   * @param {*} flags - The flags from this change event.
+   * @param {*} row - The contextual row data for this component.
+   * @returns {void|boolean} - TRUE if no check should be performed on the component.
    */
-  checkData(data, flags, row) {
+  checkData(data = null, flags = null, row = null) {
     data = data || this.rootValue;
     flags = flags || {};
     row = row || this.data;
@@ -2962,42 +3516,16 @@ export default class Component extends Element {
     if (this.id !== flags.triggeredComponentId) {
       this.calculateComponentValue(data, flags, row);
     }
-
-    if (flags.noValidate && !flags.validateOnInit && !flags.fromIframe) {
-      if (flags.fromSubmission && this.rootPristine && this.pristine && this.error && flags.changed) {
-        this.checkComponentValidity(data, !!this.options.alwaysDirty, row, true);
-      }
-      return true;
-    }
-
-    let isDirty = false;
-
-    // We need to set dirty if they explicitly set noValidate to false.
-    if (this.options.alwaysDirty || flags.dirty) {
-      isDirty = true;
-    }
-
-    // See if they explicitely set the values with setSubmission.
-    if (flags.fromSubmission && this.hasValue(data)) {
-      isDirty = true;
-    }
-
-    this.setDirty(isDirty);
-
-    if (this.component.validateOn === 'blur' && flags.fromSubmission) {
-      return true;
-    }
-    const isValid = this.checkComponentValidity(data, isDirty, row, flags);
-    this.checkModal();
-    return isValid;
   }
 
-  checkModal(isValid = true, dirty = false) {
+  checkModal(errors = [], dirty = false) {
+    const messages = errors.filter(error => !error.fromServer);
+    const isValid = errors.length === 0;
     if (!this.component.modalEdit || !this.componentModal) {
       return;
     }
     if (dirty && !isValid) {
-      this.setErrorClasses([this.refs.openModal], dirty, !isValid, !!this.errors.length, this.refs.openModalWrapper);
+      this.setErrorClasses([this.refs.openModal], dirty, !isValid, !!messages.length, this.refs.openModalWrapper);
     }
     else {
       this.clearErrorClasses(this.refs.openModalWrapper);
@@ -3019,15 +3547,10 @@ export default class Component extends Element {
 
   /**
    * Check if a component is eligible for multiple validation
-   *
-   * @return {boolean}
+   * @returns {boolean} - TRUE if the component is eligible for multiple validation.
    */
   validateMultiple() {
     return true;
-  }
-
-  get errors() {
-    return this.error ? [this.error] : [];
   }
 
   clearErrorClasses(element = this.element) {
@@ -3049,6 +3572,40 @@ export default class Component extends Element {
     });
   }
 
+  addFocusBlurEvents(element) {
+    this.addEventListener(element, 'focus', () => {
+      if (this.root.focusedComponent !== this) {
+        if (this.root.pendingBlur) {
+          this.root.pendingBlur();
+        }
+
+        this.root.focusedComponent = this;
+
+        this.emit('focus', this);
+      }
+      else if (this.root.focusedComponent === this && this.root.pendingBlur) {
+        this.root.pendingBlur.cancel();
+        this.root.pendingBlur = null;
+      }
+    });
+    this.addEventListener(element, 'blur', () => {
+      this.root.pendingBlur = FormioUtils.delay(() => {
+        this.emit('blur', this);
+        if (this.component.validateOn === 'blur') {
+          this.root.triggerChange({ fromBlur: true }, {
+            instance: this,
+            component: this.component,
+            value: this.dataValue,
+            flags: { fromBlur: true }
+          });
+        }
+        this.root.focusedComponent = null;
+        this.root.pendingBlur = null;
+      });
+    });
+  }
+
+  // eslint-disable-next-line max-statements
   setCustomValidity(messages, dirty, external) {
     const inputRefs = this.isInputComponent ? this.refs.input || [] : null;
 
@@ -3056,6 +3613,7 @@ export default class Component extends Element {
       messages = {
         level: 'error',
         message: messages,
+        component: this.component,
       };
     }
 
@@ -3068,68 +3626,59 @@ export default class Component extends Element {
       }
     }
 
-    const hasErrors = !!messages.filter(message => message.level === 'error').length;
-
+    const errors = messages.filter(message => message.level === 'error');
     let invalidInputRefs = inputRefs;
+    // Filter the invalid input refs in multiple components
     if (this.component.multiple) {
-      const inputRefsArray = Array.from(inputRefs);
-      inputRefsArray.forEach((input) => {
+      const refsArray = Array.from(inputRefs);
+      refsArray.forEach((input) => {
         this.setElementInvalid(this.performInputMapping(input), false);
       });
-      this.setInputWidgetErrorClasses(inputRefsArray, false);
+      this.setInputWidgetErrorClasses(refsArray, false);
 
-      invalidInputRefs = inputRefsArray.filter((ref) => {
+      invalidInputRefs = refsArray.filter((ref, index) => {
         return messages.some?.((msg) => {
-          return msg?.context?.input === ref;
+          return msg?.context?.index === index;
         });
       });
     }
+
     if (messages.length) {
       if (this.refs.messageContainer) {
         this.empty(this.refs.messageContainer);
       }
-      this.error = {
+      this.emit('componentError', {
+        instance: this,
         component: this.component,
         message: messages[0].message,
         messages,
         external: !!external,
-      };
-      this.emit('componentError', this.error);
+      });
       this.addMessages(messages, dirty, invalidInputRefs);
       if (invalidInputRefs) {
-        this.setErrorClasses(invalidInputRefs, dirty, hasErrors, !!messages.length);
+        this.setErrorClasses(invalidInputRefs, dirty, !!errors.length, !!messages.length);
       }
     }
-    else if (!this.error || (this.error && this.error.external === !!external)) {
+    else if (!errors.length || (errors[0].external === !!external)) {
       if (this.refs.messageContainer) {
         this.empty(this.refs.messageContainer);
       }
       if (this.refs.modalMessageContainer) {
         this.empty(this.refs.modalMessageContainer);
       }
-      this.error = null;
       if (invalidInputRefs) {
-        this.setErrorClasses(invalidInputRefs, dirty, hasErrors, !!messages.length);
+        this.setErrorClasses(invalidInputRefs, dirty, !!errors.length, !!messages.length);
       }
       this.clearErrorClasses();
     }
-
-    // if (!this.refs.input) {
-    //   return;
-    // }
-    // this.refs.input.forEach(input => {
-    //   input = this.performInputMapping(input);
-    //   if (typeof input.setCustomValidity === 'function') {
-    //     input.setCustomValidity(message, dirty);
-    //   }
-    // });
+    this._visibleErrors = messages;
+    return messages;
   }
 
   /**
    * Determines if the value of this component is hidden from the user as if it is coming from the server, but is
    * protected.
-   *
-   * @return {boolean|*}
+   * @returns {boolean|*} - TRUE if the value is hidden.
    */
   isValueHidden() {
     if (this.component.protected && this.root.editing) {
@@ -3144,10 +3693,16 @@ export default class Component extends Element {
     return (this.component.protected || !this.component.persistent || (this.component.persistent === 'client-only'));
   }
 
-  shouldSkipValidation(data, dirty, row) {
+  shouldSkipValidation(data, row, flags = {}) {
+    const { validateWhenHidden = false } = this.component || {};
+    const forceValidOnHidden = (!this.visible || !this.checkCondition(row, data)) && !validateWhenHidden;
+    if (forceValidOnHidden) {
+      // If this component is forced valid when it is hidden, then we also need to reset the errors for this component.
+      this._errors = [];
+    }
     const rules = [
-      // Do not check custom validation for empty data if it is not required
-      () => this.component.validate.custom && !this.dataValue && !this.component.validate.required,
+      // Do not validate if the flags say not too.
+      () => flags.noValidate,
       // Force valid if component is read-only
       () => this.options.readOnly,
       // Do not check validations if component is not an input component.
@@ -3155,9 +3710,7 @@ export default class Component extends Element {
       // Check to see if we are editing and if so, check component persistence.
       () => this.isValueHidden(),
       // Force valid if component is hidden.
-      () => !this.visible,
-      // Force valid if component is conditionally hidden.
-      () => !this.checkCondition(row, data)
+      () => forceValidOnHidden
     ];
 
     return rules.some(pred => pred());
@@ -3170,11 +3723,13 @@ export default class Component extends Element {
   }
 
   get dataReady() {
-    return NativePromise.resolve();
+    return Promise.resolve();
   }
 
   /**
    * Prints out the value of this component as a string value.
+   * @param {*} value - The value to print out.
+   * @returns {string} - The string representation of the value.
    */
   asString(value) {
     value = value || this.getValue();
@@ -3183,7 +3738,7 @@ export default class Component extends Element {
 
   /**
    * Return if the component is disabled.
-   * @return {boolean}
+   * @returns {boolean} - TRUE if the component is disabled.
    */
   get disabled() {
     return this._disabled || this.parentDisabled;
@@ -3191,8 +3746,7 @@ export default class Component extends Element {
 
   /**
    * Disable this component.
-   *
-   * @param {boolean} disabled
+   * @param {boolean} disabled - TRUE to disable the component.
    */
   set disabled(disabled) {
     this._disabled = disabled;
@@ -3316,6 +3870,10 @@ export default class Component extends Element {
 
               // Change states which won't be recalculated during redrawing
               if (this.visible !== visible) {
+                // If the logic is triggered by an event and the action sets the hidden state then the original
+                // component definition must be changed so that the components hidden state does not get flipped back by
+                // the fieldLogic function
+                this.originalComponent.hidden = !visible;
                 this.visible = visible;
               }
               if (this.disabled !== disabled) {
@@ -3332,6 +3890,7 @@ export default class Component extends Element {
 
   /**
    * Get the element information.
+   * @returns {*} - The components "input" DOM element information.
    */
   elementInfo() {
     const attributes = {
@@ -3365,6 +3924,7 @@ export default class Component extends Element {
 
   autofocus() {
     const hasAutofocus = this.component.autofocus && !this.builderMode && !this.options.preview;
+
     if (hasAutofocus) {
       this.on('render', () => this.focus(), true);
     }
@@ -3378,19 +3938,15 @@ export default class Component extends Element {
     window.scrollTo(left + window.scrollX, top + window.scrollY);
   }
 
-  focus(index) {
+  focus(index = (this.refs.input.length - 1)) {
     if ('beforeFocus' in this.parent) {
       this.parent.beforeFocus(this);
     }
 
     if (this.refs.input?.length) {
-      const focusingInput = typeof index === 'number' && this.refs.input[index]
-        ? this.refs.input[index]
-        : this.refs.input[this.refs.input.length - 1];
-
+      const focusingInput = this.refs.input[index];
       if (this.component.widget?.type === 'calendar') {
         const sibling = focusingInput.nextSibling;
-
         if (sibling) {
           sibling.focus();
         }
@@ -3411,6 +3967,7 @@ export default class Component extends Element {
 
   /**
    * Get `Formio` instance for working with files
+   * @returns {import('@formio/core').Formio} - The Formio instance file service.
    */
   get fileService() {
     if (this.options.fileService) {
@@ -3441,7 +3998,7 @@ Component.externalLibraries = {};
 Component.requireLibrary = function(name, property, src, polling) {
   if (!Component.externalLibraries.hasOwnProperty(name)) {
     Component.externalLibraries[name] = {};
-    Component.externalLibraries[name].ready = new NativePromise((resolve, reject) => {
+    Component.externalLibraries[name].ready = new Promise((resolve, reject) => {
       Component.externalLibraries[name].resolve = resolve;
       Component.externalLibraries[name].reject = reject;
     });
@@ -3454,7 +4011,7 @@ Component.requireLibrary = function(name, property, src, polling) {
       }.bind(Component.externalLibraries[name]);
     }
     // See if the plugin already exists.
-    const plugin = _.get(window, property);
+    const plugin = getScriptPlugin(property);
     if (plugin) {
       Component.externalLibraries[name].resolve(plugin);
     }
@@ -3499,7 +4056,7 @@ Component.requireLibrary = function(name, property, src, polling) {
       // if no callback is provided, then check periodically for the script.
       if (polling) {
         setTimeout(function checkLibrary() {
-          const plugin = _.get(window, property);
+          const plugin = getScriptPlugin(property);
           if (plugin) {
             Component.externalLibraries[name].resolve(plugin);
           }
@@ -3522,5 +4079,5 @@ Component.libraryReady = function(name) {
     return Component.externalLibraries[name].ready;
   }
 
-  return NativePromise.reject(`${name} library was not required.`);
+  return Promise.reject(`${name} library was not required.`);
 };

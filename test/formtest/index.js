@@ -10,8 +10,10 @@ const manualOverride = require('./manualOverride.json');
 const uniqueApiKeys = require('./uniqueApiKeys.json');
 const uniqueApiKeysLayout = require('./uniqueApiKeysLayout.json');
 const uniqueApiKeysSameLevel = require('./uniqueApiKeysSameLevel.json');
+const uniqueApiKeysTranslation = require('./uniqueApiKeysTranslation.json');
 const validationOnBlur = require('./validationOnBlur.json');
 const calculateValueWithManualOverride = require('./calculateValueWithManualOverride.json');
+const calculateValueWithSubmissionMetadata = require('./calculateValueWithSubmissionMetadata.json');
 const displayAsModalEditGrid = require('./displayAsModalEditGrid.json');
 const formWithAdvancedLogic = require('./advancedLogicForm.json');
 const formWithConditionalLogic = require('./conditionalLogicForm.json');
@@ -38,6 +40,9 @@ const formWithCustomFormatDate = require('./formWithCustomFormatDate.json');
 const wizardWithHiddenPanel = require('./wizardWithHiddenPanel.json');
 const wizardWithSimpleConditionalPage = require('./wizardWithSimpleConditionalPage.json');
 const wizardWithTooltip = require('./wizardWithTooltip.json');
+const resourceKeyCamelCase = require('./resourceKeyCamelCase.json');
+const tooltipActivateCheckbox = require('./tooltipActivateCheckbox.json');
+const formWithObjectValueSelect = require('./formWithObjectValueSelect.json');
 
 module.exports = {
   advanced,
@@ -52,8 +57,10 @@ module.exports = {
   uniqueApiKeys,
   uniqueApiKeysLayout,
   uniqueApiKeysSameLevel,
+  uniqueApiKeysTranslation,
   validationOnBlur,
   calculateValueWithManualOverride,
+  calculateValueWithSubmissionMetadata,
   displayAsModalEditGrid,
   formWithAdvancedLogic,
   formWithPatternValidation,
@@ -80,4 +87,7 @@ module.exports = {
   wizardWithHiddenPanel,
   wizardWithSimpleConditionalPage,
   wizardWithTooltip,
+  resourceKeyCamelCase,
+  tooltipActivateCheckbox,
+  formWithObjectValueSelect
 };

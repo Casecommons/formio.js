@@ -1,5 +1,7 @@
+docs
 _site
 dump.rdb
+.dccache
 .DS_Store
 .bower.json
 node_modules
