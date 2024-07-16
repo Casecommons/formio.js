@@ -5,7 +5,16 @@
  * @returns {import('@formio/core').Component[]} - The result of the component that is found.
  */
 export function findComponents(components: import('@formio/core').Component[], query: object): import('@formio/core').Component[];
-export const flattenComponents: typeof Utils.flattenComponents;
+/**
+ * Flatten the form components for data manipulation.
+ * @param {object} components
+ *   The components to iterate.
+ * @param {boolean} includeAll
+ *   Whether or not to include layout components.
+ * @returns {object}
+ *   The flattened components map.
+ */
+export function flattenComponents(components: object, includeAll: boolean): object;
 export const guid: typeof Utils.guid;
 export const uniqueName: typeof Utils.uniqueName;
 export const MODEL_TYPES: Record<string, string[]>;
@@ -22,7 +31,20 @@ export const getComponentKey: typeof Utils.getComponentKey;
 export const getContextualRowPath: typeof Utils.getContextualRowPath;
 export const getContextualRowData: typeof Utils.getContextualRowData;
 export const componentInfo: typeof Utils.componentInfo;
-export const eachComponent: typeof Utils.eachComponent;
+/**
+ * Iterate through each component within a form.
+ * @param {object} components
+ *   The components to iterate.
+ * @param {Function} fn
+ *   The iteration function to invoke for each component.
+ * @param {boolean} includeAll
+ *   Whether or not to include layout components.
+ * @param {string} path
+ *   The current data path of the element. Example: data.user.firstName
+ * @param {object} parent
+ *   The parent object.
+ */
+export function eachComponent(components: object, fn: Function, includeAll: boolean, path: string, parent: object): void;
 export const eachComponentAsync: typeof Utils.eachComponentAsync;
 export const getComponentData: typeof Utils.getComponentData;
 export const getComponentActualValue: typeof Utils.getComponentActualValue;
