@@ -303,7 +303,7 @@ export default class PDF extends Webform {
     const submitError = this.t('submitError');
     const isSubmitErrorShown = this.refs.buttonMessage?.textContent.trim() === submitError;
 
-    if (!helpBlock && error.length && !isSubmitErrorShown) {
+    if (!helpBlock && error?.length && !isSubmitErrorShown) {
       const p = this.ce('p', { class: 'help-block' });
 
       this.setContent(p, submitError);
@@ -317,7 +317,7 @@ export default class PDF extends Webform {
       this.appendTo(div, this.element);
     }
 
-    if (!error.length && helpBlock) {
+    if (!error?.length && helpBlock) {
       helpBlock.remove();
     }
 
