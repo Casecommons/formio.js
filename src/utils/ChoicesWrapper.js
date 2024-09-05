@@ -54,26 +54,6 @@ class ChoicesWrapper extends Choices {
     this.shouldOpenDropDown = true;
   }
 
-  _onTouchEnd(event) {
-    var target = (event || event.touches[0]).target;
-    var touchWasWithinContainer = this._wasTap && this.containerOuter.element.contains(target);
-    if (touchWasWithinContainer) {
-      var containerWasExactTarget = target === this.containerOuter.element || target === this.containerInner.element;
-      if (containerWasExactTarget) {
-        if (this._isTextElement) {
-          this.input.focus();
-        }
-        else if (this._isSelectMultipleElement) {
-          this.input.focus();
-          this.showDropdown();
-        }
-      }
-      // Prevents focus event firing
-      event.stopPropagation();
-    }
-    this._wasTap = true;
-  }
-
   _handleButtonAction(activeItems, element) {
     if (!this._isSelectOneElement) {
       return super._handleButtonAction(activeItems, element);
@@ -122,24 +102,13 @@ class ChoicesWrapper extends Choices {
     }
   }
 
-  _selectHighlightedChoice() {
+  _selectHighlightedChoice(activeItems) {
     const highlightedChoice = this.dropdown.getChild(
       `.${this.config.classNames.highlightedState}`,
     );
 
     if (highlightedChoice) {
-      const id = highlightedChoice.dataset.id;
-      const choice = id && this._store.getChoiceById(id);
-      this._addItem({
-        value: choice.value,
-        label: choice.label,
-        choiceId: choice.id,
-        groupId: choice.groupId,
-        customProperties: choice.customProperties,
-        placeholder: choice.placeholder,
-        keyCode: choice.keyCode
-      });
-      this._triggerChange(choice.value);
+      this._handleChoiceAction(activeItems, highlightedChoice);
     }
 
     event.preventDefault();

@@ -22,6 +22,7 @@ export default {
         }
       ],
       key: 'inspectionDataGrid',
+      customConditional: 'show = (row.reliabilityAndMaintenanceForms.other == true)',
       type: 'datagrid',
       input: true,
       components: [

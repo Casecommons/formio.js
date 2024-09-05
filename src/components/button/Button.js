@@ -1,7 +1,8 @@
 import _ from 'lodash';
+import NativePromise from 'native-promise-only';
 import Field from '../_classes/field/Field';
 import Input from '../_classes/input/Input';
-import { componentValueTypes, eachComponent, getArrayFromComponentPath, getComponentSavedTypes } from '../../utils/utils';
+import { eachComponent } from '../../utils/utils';
 
 export default class ButtonComponent extends Field {
   static schema(...extend) {
@@ -26,14 +27,10 @@ export default class ButtonComponent extends Field {
       title: 'Button',
       group: 'basic',
       icon: 'stop',
-      documentation: '/userguide/form-building/form-components#button',
+      documentation: '/userguide/forms/form-components#button',
       weight: 110,
       schema: ButtonComponent.schema()
     };
-  }
-
-  static savedValueTypes(schema) {
-    return getComponentSavedTypes(schema) || [componentValueTypes.boolean];
   }
 
   constructor(component, options, data) {
@@ -104,7 +101,7 @@ export default class ButtonComponent extends Field {
 
   get className() {
     let className = super.className;
-    className += ` ${this.transform('class', 'form-group')}`;
+    className += ' form-group';
     return className;
   }
 
@@ -214,7 +211,7 @@ export default class ButtonComponent extends Field {
       const isSilent = flags && flags.silent;
       //check root validity only if disableOnInvalid is set and when it is not possible to make submission because of validation errors
       if (flags && flags.noValidate && (this.component.disableOnInvalid || this.hasError)) {
-        isValid = flags.rootValidity || (this.root ? (this.root.validate(this.root.data, { dirty: false, silentCheck: true }).length === 0) : true);
+        isValid = flags.rootValidity || (this.root ? this.root.checkValidity(this.root.data, null, null, true) : true);
         flags.rootValidity = isValid;
       }
       this.isDisabledOnInvalid = this.component.disableOnInvalid && (isSilent || !isValid);
@@ -253,11 +250,6 @@ export default class ButtonComponent extends Field {
     this.disabled = this.shouldDisabled;
     this.setDisabled(this.refs.button, this.disabled);
 
-    /**
-     * Get url parameter by name
-     * @param {string} name - The url parameter
-     * @returns {string} - The url parameter value
-     */
     function getUrlParameter(name) {
       name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
       const regex = new RegExp(`[\\?&]${name}=([^&#]*)`);
@@ -302,7 +294,7 @@ export default class ButtonComponent extends Field {
   }
 
   onClick(event) {
-    this.triggerCaptcha();
+    this.triggerReCaptcha();
     // Don't click if disabled or in builder mode.
     if (this.disabled || this.options.attachMode === 'builder') {
       return;
@@ -318,7 +310,6 @@ export default class ButtonComponent extends Field {
         event.stopPropagation();
         this.loading = true;
         this.emit('submitButton', {
-          noValidate: this.component.state === 'draft',
           state: this.component.state || 'submitted',
           component: this.component,
           instance: this
@@ -407,17 +398,10 @@ export default class ButtonComponent extends Field {
     let params = {
       response_type: 'code',
       client_id: settings.clientId,
-      redirect_uri: (settings.redirectURI && this.interpolate(settings.redirectURI)) || window.location.origin || `${window.location.protocol}//${window.location.host}`,
+      redirect_uri: settings.redirectURI || window.location.origin || `${window.location.protocol}//${window.location.host}`,
+      state: settings.state,
       scope: settings.scope
     };
-    if (settings.state) {
-      params.state = settings.state;
-    }
-    else if (settings.code_challenge) {
-      params.code_challenge = settings.code_challenge;
-      params.code_challenge_method = 'S256';
-    }
-
     /*eslint-enable camelcase */
 
     // Needs for the correct redirection URI for the OpenID
@@ -440,7 +424,7 @@ export default class ButtonComponent extends Field {
       try {
         const popupHost = popup.location.host;
         const currentHost = window.location.host;
-        if (popup && !popup.closed && popupHost === currentHost) {
+        if (popup && !popup.closed && popupHost === currentHost && popup.location.search) {
           popup.close();
           const params = popup.location.search.substr(1).split('&').reduce((params, param) => {
             const split = param.split('=');
@@ -458,26 +442,23 @@ export default class ButtonComponent extends Field {
             return;
           }
           // Depending on where the settings came from, submit to either the submission endpoint (old) or oauth endpoint (new).
-          let requestPromise = Promise.resolve();
+          let requestPromise = NativePromise.resolve();
 
           if (_.has(this, 'root.form.config.oauth') && this.root.form.config.oauth[this.component.oauthProvider]) {
             params.provider = settings.provider;
             params.redirectURI = originalRedirectUri;
 
             // Needs for the exclude oAuth Actions that not related to this button
-            params.triggeredBy = this.oauthComponentPath;
+            params.triggeredBy = this.key;
             requestPromise = this.root.formio.makeRequest('oauth', `${this.root.formio.projectUrl}/oauth2`, 'POST', params);
           }
           else {
             const submission = { data: {}, oauth: {} };
             submission.oauth[settings.provider] = params;
             submission.oauth[settings.provider].redirectURI = originalRedirectUri;
-            if (settings.logoutURI) {
-              this.root.formio.oauthLogoutURI(settings.logoutURI);
-            }
 
             // Needs for the exclude oAuth Actions that not related to this button
-            submission.oauth[settings.provider].triggeredBy = this.oauthComponentPath;
+            submission.oauth[settings.provider].triggeredBy = this.key;
             requestPromise = this.root.formio.saveSubmission(submission);
           }
           requestPromise.then((result) => {
@@ -499,34 +480,29 @@ export default class ButtonComponent extends Field {
     }, 100);
   }
 
-  get oauthComponentPath() {
-    const pathArray = getArrayFromComponentPath(this.path);
-    return _.chain(pathArray).filter(pathPart => !_.isNumber(pathPart)).join('.').value();
-  }
-
   focus() {
     if (this.refs.button) {
       this.refs.button.focus();
     }
   }
 
-  triggerCaptcha() {
+  triggerReCaptcha() {
     if (!this.root) {
       return;
     }
 
-    let captchaComponent;
+    let recaptchaComponent;
 
     this.root.everyComponent((component)=> {
-      if (/^(re)?captcha$/.test(component.component.type) &&
+      if ( component.component.type === 'recaptcha' &&
         component.component.eventType === 'buttonClick' &&
         component.component.buttonKey === this.component.key) {
-          captchaComponent = component;
+          recaptchaComponent = component;
         }
     });
 
-    if (captchaComponent) {
-      captchaComponent.verify(`${this.component.key}Click`);
+    if (recaptchaComponent) {
+      recaptchaComponent.verify(`${this.component.key}Click`);
     }
   }
 }

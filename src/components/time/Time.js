@@ -16,18 +16,6 @@ export default class TimeComponent extends TextFieldComponent {
     }, ...extend);
   }
 
-  static get serverConditionSettings() {
-    return {
-      ...super.serverConditionSettings,
-      valueComponent(classComp) {
-        return {
-          ...classComp,
-          type: 'time',
-        };
-      },
-    };
-  }
-
   constructor(component, options, data) {
     super(component, options, data);
     const { edge: isEdgeBrowser, version: edgeVersion } = getBrowserInfo();
@@ -38,12 +26,19 @@ export default class TimeComponent extends TextFieldComponent {
     this.rawData = this.component.multiple ? [] : this.emptyValue;
   }
 
+  init() {
+    super.init();
+    if (this.component.inputType === 'text') {
+      this.validators.push('time');
+    }
+  }
+
   static get builderInfo() {
     return {
       title: 'Time',
       icon: 'clock-o',
       group: 'advanced',
-      documentation: '/userguide/form-building/advanced-components#time-1',
+      documentation: '/userguide/forms/form-components#time',
       weight: 55,
       schema: TimeComponent.schema(),
     };
@@ -149,9 +144,6 @@ export default class TimeComponent extends TextFieldComponent {
   }
 
   getValueAsString(value) {
-    if (Array.isArray(value) && this.component.multiple) {
-      return value.map(item => moment(item, this.component.dataFormat).format(this.component.format)).join(', ');
-    }
     return (value ? moment(value, this.component.dataFormat).format(this.component.format) : value) || '';
   }
 

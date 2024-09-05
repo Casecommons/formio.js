@@ -1,51 +1,15 @@
-import _ from 'lodash';
 import { eachComponent } from '../../../utils/utils';
-
-const calculateSingleSelectData = (context, defaultValue) => {
-  const { instance, data } = context;
-  const rawDefaultValue = instance.downloadedResources.find(resource => _.get(resource, data.valueProperty) === defaultValue);
-  const options = { data: {}, noeval: true };
-  instance.interpolate(data.template, {
-    item: rawDefaultValue,
-  }, options);
-  return options.data.item;
-};
-
-const calculateSelectData = (context) => {
-  const { instance } = context;
-  const defaultValue = instance.getValue();
-  if (instance.component.multiple) {
-    const multiSelectData = {};
-    (defaultValue ?? []).forEach((defaultValueItem) => {
-      multiSelectData[defaultValueItem] = calculateSingleSelectData(context, defaultValueItem);
-    });
-    return multiSelectData;
-  }
-  else {
-    return calculateSingleSelectData(context, defaultValue);
-  }
-};
-
-const setSelectData = (context) => {
-  // Wait before downloadedResources will be set
-  setTimeout(() => {
-    const { instance, data } = context;
-    const selectDataComponent = instance?.root.getComponent('selectData');
-    // nothing can set if don't have downloaded resources
-    if (!selectDataComponent || !instance.getValue() || !instance.downloadedResources?.length) {
-      return;
-    }
-    // if valueProperty is not provided, we have entire object
-    const shouldCalculateUrlData = data.dataSrc === 'url' && data.data.url && data.valueProperty;
-    const shouldCalculateResourceData = data.dataSrc === 'resource' && data.data.resource && data.valueProperty;
-    const newValue = shouldCalculateUrlData || shouldCalculateResourceData ? calculateSelectData(context) : undefined;
-    selectDataComponent.setValue(newValue);
-  }, 0);
-};
 
 export default [
   {
+    type: 'select',
+    input: true,
+    weight: 0,
+    tooltip: 'The source to use for the select data. Values lets you provide your own values and labels. JSON lets you provide raw JSON data. URL lets you provide a URL to retrieve the JSON data from.',
     key: 'dataSrc',
+    defaultValue: 'values',
+    label: 'Data Source Type',
+    dataSrc: 'values',
     data: {
       values: [
         { label: 'Values', value: 'values' },
@@ -107,6 +71,18 @@ export default [
     },
   },
   {
+    type: 'textfield',
+    input: true,
+    key: 'data.url',
+    weight: 10,
+    label: 'Data Source URL',
+    placeholder: 'Data Source URL',
+    tooltip: 'A URL that returns a JSON array to use as the data source.',
+    conditional: {
+      json: { '===': [{ var: 'data.dataSrc' }, 'url'] },
+    },
+  },
+  {
     type: 'checkbox',
     input: true,
     label: 'Lazy Load Data',
@@ -133,6 +109,31 @@ export default [
           }
         ]
       },
+    },
+  },
+  {
+    type: 'datagrid',
+    input: true,
+    label: 'Request Headers',
+    key: 'data.headers',
+    tooltip: 'Set any headers that should be sent along with the request to the url. This is useful for authentication.',
+    weight: 11,
+    components: [
+      {
+        label: 'Key',
+        key: 'key',
+        input: true,
+        type: 'textfield',
+      },
+      {
+        label: 'Value',
+        key: 'value',
+        input: true,
+        type: 'textfield',
+      },
+    ],
+    conditional: {
+      json: { '===': [{ var: 'data.dataSrc' }, 'url'] },
     },
   },
   {
@@ -279,6 +280,29 @@ export default [
     label: 'ID Path',
     placeholder: 'id',
     tooltip: 'Path to the select option id.'
+  },
+  {
+    type: 'textfield',
+    input: true,
+    label: 'Value Property',
+    key: 'valueProperty',
+    skipMerge: true,
+    clearOnHide: false,
+    weight: 13,
+    description: "The selected item's property to save.",
+    tooltip: 'The property of each item in the data source to use as the select value. If not specified, the item itself will be used.',
+    conditional: {
+      json: {
+        in: [
+          { var: 'data.dataSrc' },
+          [
+            'json',
+            'url',
+            'custom'
+          ],
+        ],
+      },
+    },
   },
   {
     type: 'textfield',
@@ -454,6 +478,27 @@ export default [
     },
   },
   {
+    type: 'textarea',
+    input: true,
+    key: 'template',
+    label: 'Item Template',
+    editor: 'ace',
+    as: 'html',
+    rows: 3,
+    weight: 18,
+    tooltip: 'The HTML template for the result data items.',
+    allowCalculateOverride: true,
+    calculateValue:(context) => {
+      if (!context.data.template) {
+        if (context.instance && context.instance._currentForm.options.editComponent) {
+          return context.instance._currentForm.options.editComponent.template;
+        }
+      }
+
+      return context.data.template;
+    }
+  },
+  {
     type: 'select',
     input: true,
     key: 'refreshOn',
@@ -560,29 +605,6 @@ export default [
     tooltip: 'When checked, the select dropdown will allow for searching within the static list of items provided.',
   },
   {
-    type: 'checkbox',
-    input: true,
-    weight: 21,
-    key: 'noRefreshOnScroll',
-    label: 'Disable Options Refresh When Scrolling',
-    defaultValue: false,
-    tooltip: 'When checked, the select with search input won\'t perform new api requests when scrolling through the list of options.',
-    conditional: {
-      json: {
-        and: [
-          {  in: [
-              { var: 'data.dataSrc' },
-              [
-                'url',
-                'resource'
-              ],
-            ] },
-          { '===': [{ var: 'data.searchEnabled' }, true] }
-        ]
-      },
-    },
-  },
-  {
     label: 'Search Threshold',
     mask: false,
     tableView: true,
@@ -645,6 +667,17 @@ export default [
   {
     type: 'checkbox',
     input: true,
+    weight: 26,
+    key: 'authenticate',
+    label: 'Formio Authenticate',
+    tooltip: 'Check this if you would like to use Formio Authentication with the request.',
+    conditional: {
+      json: { '===': [{ var: 'data.dataSrc' }, 'url'] },
+    },
+  },
+  {
+    type: 'checkbox',
+    input: true,
     weight: 27,
     key: 'readOnlyValue',
     label: 'Read Only Value',
@@ -670,35 +703,17 @@ export default [
     tooltip: 'Disables search algorithm threshold.',
   },
   {
-    key: 'defaultValue',
-    onSetItems(component) {
-      setSelectData(component.evalContext());
-    },
-    onChange(context) {
-      if (context && context.flags && context.flags.modified) {
-        setSelectData(context);
-      }
-    },
-  },
-  {
-    key: 'selectData',
+    type: 'checkbox',
+    input: true,
+    weight: 29,
+    key: 'ignoreCache',
+    label: 'Disables Storing Request Result in the Cache',
+    tooltip: 'Check it if you don\'t want the requests and its results to be stored in the cache. By default, it is stored and if the Select tries to make the request to the same URL with the same paremetrs, the cached data will be returned. It allows to increase performance, but if the remote source\'s data is changing quite often and you always need to keep it up-to-date, uncheck this option.',
     conditional: {
-      json: { 'and': [
-        { '!==': [{ var: 'data.valueProperty' }, null] },
-        { '!==': [{ var: 'data.valueProperty' }, ''] },
+      json: { 'or': [
+        { '===': [{ var: 'data.dataSrc' }, 'url'] },
+        { '===': [{ var: 'data.dataSrc' }, 'resource'] },
       ] },
-    },
-  },
-  {
-    key: 'template',
-    onChange(context) {
-      if (context && context.flags && context.flags.modified) {
-        const defaultValueComponent = context.instance.root.getComponent('defaultValue');
-        if (!defaultValueComponent) {
-          return;
-        }
-        setSelectData(defaultValueComponent.evalContext());
-      }
     },
   },
 ];

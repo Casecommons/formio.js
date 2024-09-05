@@ -1,7 +1,6 @@
 import _ from 'lodash';
-import moment from 'moment';
 import Field from '../_classes/field/Field';
-import { boolValue, componentValueTypes, getComponentSavedTypes, getLocaleDateFormatInfo } from '../../utils/utils';
+import { boolValue, getLocaleDateFormatInfo } from '../../utils/utils';
 
 export default class DayComponent extends Field {
   static schema(...extend) {
@@ -35,41 +34,16 @@ export default class DayComponent extends Field {
       title: 'Day',
       group: 'advanced',
       icon: 'calendar',
-      documentation: '/userguide/form-building/advanced-components#day',
+      documentation: '/userguide/forms/form-components#day',
       weight: 50,
       schema: DayComponent.schema()
     };
   }
 
-  static get conditionOperatorsSettings() {
-    return {
-      ...super.conditionOperatorsSettings,
-      operators: ['isDateEqual', 'isNotDateEqual', 'isEmpty', 'isNotEmpty','dateLessThan', 'dateGreaterThan', 'dateLessThanOrEqual','dateGreaterThanOrEqual'],
-    };
-  }
-
-  static savedValueTypes(schema) {
-    schema = schema || {};
-    return getComponentSavedTypes(schema) || [componentValueTypes.string];
-  }
-
-  constructor(component, options, data) {
-    if (component.maxDate && component.maxDate.indexOf('moment(') === -1) {
-      component.maxDate = moment(component.maxDate, 'YYYY-MM-DD').toISOString();
-    }
-    if (component.minDate && component.minDate.indexOf('moment(') === -1) {
-      component.minDate = moment(component.minDate, 'YYYY-MM-DD').toISOString();
-    }
-    super(component, options, data);
-  }
-
-  static get serverConditionSettings() {
-    return DayComponent.conditionOperatorsSettings;
-  }
-
   /**
    * The empty value for day component.
-   * @returns {'00/00/0000'} - The empty value of the day component.
+   *
+   * @return {'00/00/0000'}
    */
   get emptyValue() {
     return '00/00/0000';
@@ -140,7 +114,7 @@ export default class DayComponent extends Field {
         id: `${this.component.key}-${name}`,
         class: `form-control ${this.transform('class', `formio-day-component-${name}`)}`,
         type: this.component.fields[name].type === 'select' ? 'select' : 'number',
-        placeholder: this.t(this.component.fields[name].placeholder),
+        placeholder: this.component.fields[name].placeholder,
         step: 1,
         min,
         max,
@@ -233,6 +207,7 @@ export default class DayComponent extends Field {
 
   init() {
     super.init();
+    this.validators = this.validators.concat(['day', 'maxDate', 'minDate', 'minYear', 'maxYear']);
 
     const minYear = this.component.fields.year.minYear;
     const maxYear = this.component.fields.year.maxYear;
@@ -286,19 +261,6 @@ export default class DayComponent extends Field {
   attach(element) {
     this.loadRefs(element, { day: 'single', month: 'single', year: 'single', input: 'multiple' });
     const superAttach = super.attach(element);
-
-    const updateValueAndSaveFocus = (element, name) => () => {
-      try {
-        this.saveCaretPosition(element, name);
-      }
-      catch (err) {
-        console.warn('An error occurred while trying to save caret position', err);
-      }
-      this.updateValue(null, {
-        modified: true,
-      });
-    };
-
     if (this.shouldDisabled) {
       this.setDisabled(this.refs.day, true);
       this.setDisabled(this.refs.month, true);
@@ -308,14 +270,13 @@ export default class DayComponent extends Field {
       }
     }
     else {
-      this.addEventListener(this.refs.day, 'input', updateValueAndSaveFocus(this.refs.day, 'day'));
+      this.addEventListener(this.refs.day, 'input', () => this.updateValue(null, {
+        modified: true
+      }));
       // TODO: Need to rework this to work with day select as well.
       // Change day max input when month changes.
       this.addEventListener(this.refs.month, 'input', () => {
-        const maxDay = this.refs.year ? parseInt(
-            new Date(this.refs.year.value, this.refs.month.value, 0).getDate(),
-            10
-          )
+        const maxDay = this.refs.year ? parseInt(new Date(this.refs.year.value, this.refs.month.value, 0).getDate(), 10)
           : '';
         const day = this.getFieldValue('day');
         if (!this.component.fields.day.hide && maxDay) {
@@ -324,15 +285,16 @@ export default class DayComponent extends Field {
         if (maxDay && day > maxDay) {
           this.refs.day.value = this.refs.day.max;
         }
-        updateValueAndSaveFocus(this.refs.month, 'month')();
+        this.updateValue(null, {
+          modified: true
+        });
       });
-      this.addEventListener(this.refs.year, 'input', updateValueAndSaveFocus(this.refs.year, 'year'));
+      this.addEventListener(this.refs.year, 'input', () => this.updateValue(null, {
+        modified: true
+      }));
       this.addEventListener(this.refs.input, this.info.changeEvent, () => this.updateValue(null, {
         modified: true
       }));
-      [this.refs.day, this.refs.month, this.refs.year].filter((element) => !!element).forEach((element) => {
-        super.addFocusBlurEvents(element);
-      });
     }
     this.setValue(this.dataValue);
     // Force the disabled state with getters and setters.
@@ -383,32 +345,30 @@ export default class DayComponent extends Field {
     }
     const dateParts = [];
     const valueParts = value.split('/');
-    const [DAY, MONTH, YEAR] = this.component.dayFirst ? [0, 1, 2] : [1, 0, 2];
-    const defaultValue = this.component.defaultValue ? this.component.defaultValue.split('/') : '';
 
     const getNextPart = (shouldTake, defaultValue) =>
       dateParts.push(shouldTake ? valueParts.shift() : defaultValue);
 
     if (this.dayFirst) {
-      getNextPart(this.showDay, defaultValue ? defaultValue[DAY] : '00');
+      getNextPart(this.showDay, '00');
     }
 
-    getNextPart(this.showMonth, defaultValue ? defaultValue[MONTH] : '00');
+    getNextPart(this.showMonth, '00');
 
     if (!this.dayFirst) {
-      getNextPart(this.showDay, defaultValue ? defaultValue[DAY] : '00');
+      getNextPart(this.showDay, '00');
     }
 
-    getNextPart(this.showYear, defaultValue ? defaultValue[YEAR] : '0000');
+    getNextPart(this.showYear, '0000');
 
     return dateParts.join('/');
   }
 
   /**
-   * Set the value at a specific index and updates the component's refs.
-   * @param {number} index - The index to set.
-   * @param {any} value - The value to set.
-   * @returns {null|void} - Returns null if the value is invalid, otherwise void.
+   * Set the value at a specific index.
+   *
+   * @param index
+   * @param value
    */
   setValueAt(index, value) {
     // temporary solution to avoid input reset
@@ -468,7 +428,7 @@ export default class DayComponent extends Field {
 
   /**
    * Get the format for the value string.
-   * @returns {string} - the format for the value string.
+   * @returns {string}
    */
   get format() {
     let format = '';
@@ -493,8 +453,9 @@ export default class DayComponent extends Field {
 
   /**
    * Return the date for this component.
-   * @param {any} value - The value to convert to a date.
-   * @returns {null|string} - The date string.
+   *
+   * @param value
+   * @return {*}
    */
   getDate(value) {
     let defaults = [], day, month, year;
@@ -548,18 +509,26 @@ export default class DayComponent extends Field {
   }
 
   /**
-   * Return the date string for this component.
-   * @returns {string|null} - The date string for this component.
+   * Return the date object for this component.
+   * @returns {Date}
    */
   get date() {
     return this.getDate();
   }
 
+  normalizeMinMaxDates() {
+   return [this.component.minDate, this.component.maxDate]
+      .map(date => date ? date.split('-').reverse().join('/') : date);
+  }
+
   /**
    * Return the raw value.
-   * @returns {string} - The raw value of the component.
+   *
+   * @returns {Date}
    */
   get validationValue() {
+    [this.component.minDate, this.component.maxDate] = this.dayFirst ? this.normalizeMinMaxDates()
+      : [this.component.minDate, this.component.maxDate];
     return this.dataValue;
   }
 
@@ -570,8 +539,9 @@ export default class DayComponent extends Field {
 
   /**
    * Get the value at a specific index.
-   * @param {number} index - The index to get the value from.
-   * @returns {*} - The value at index.
+   *
+   * @param index
+   * @returns {*}
    */
   getValueAt(index) {
     const date = this.date || this.emptyValue;
@@ -587,18 +557,16 @@ export default class DayComponent extends Field {
 
   /**
    * Get the input value of the date.
-   * @param {any} value - The value to convert to a string.
-   * @returns {string|null} - The string value of the date.
+   *
+   * @param value
+   * @return {null}
    */
   getValueAsString(value) {
     return this.getDate(value) || '';
   }
 
-  focus(field) {
-    if (field && typeof field === 'string' && this.refs[field]) {
-      this.refs[field].focus();
-    }
-    else if (this.dayFirst && this.showDay || !this.dayFirst && !this.showMonth && this.showDay) {
+  focus() {
+    if (this.dayFirst && this.showDay || !this.dayFirst && !this.showMonth && this.showDay) {
       this.refs.day?.focus();
     }
     else if (this.dayFirst && !this.showDay && this.showMonth || !this.dayFirst && this.showMonth) {
@@ -606,19 +574,6 @@ export default class DayComponent extends Field {
     }
     else if (!this.showDay && !this.showDay && this.showYear) {
       this.refs.year?.focus();
-    }
-  }
-
-  restoreCaretPosition() {
-    if (this.root?.currentSelection) {
-      const { selection, index } = this.root.currentSelection;
-      if (this.refs[index]) {
-        const input = this.refs[index];
-        const isInputRangeSelectable = (i) => /text|search|password|tel|url/i.test(i?.type || '');
-        if (isInputRangeSelectable(input)) {
-          input.setSelectionRange(...selection);
-        }
-      }
     }
   }
 

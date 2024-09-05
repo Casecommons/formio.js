@@ -1,6 +1,7 @@
 import Multivalue from '../multivalue/Multivalue';
-import { convertStringToHTMLElement } from '../../../utils/utils';
+import { delay, convertStringToHTMLElement } from '../../../utils/utils';
 import Widgets from '../../../widgets';
+import NativePromise from 'native-promise-only';
 import _ from 'lodash';
 
 export default class Input extends Multivalue {
@@ -25,8 +26,8 @@ export default class Input extends Multivalue {
       lang: this.options.language
     };
 
-    if (this.options.attachMode === 'builder' || this.options.building || _.get(this.root, 'form.settings.disableAutocomplete')) {
-      attr.autocomplete = this.autocompleteDisableAttrName;
+    if (this.options.attachMode === 'builder' || this.options.building) {
+      attr.autocomplete = 'off';
     }
 
     if (this.component.inputMode) {
@@ -34,7 +35,7 @@ export default class Input extends Multivalue {
     }
 
     if (this.component.placeholder) {
-      attr.placeholder = this.getFormattedAttribute(this.component.placeholder);
+      attr.placeholder = this.t(this.component.placeholder, { _userInput: true });
     }
 
     if (this.component.tabindex) {
@@ -58,10 +59,6 @@ export default class Input extends Multivalue {
       content: '',
       attr
     };
-  }
-
-  get autocompleteDisableAttrName() {
-    return 'off';
   }
 
   get maskOptions() {
@@ -122,7 +119,7 @@ export default class Input extends Multivalue {
       }).trim();
       if (this.component.prefix !== calendarIcon) {
         // converting string to HTML markup to render correctly DateTime component in portal.form.io
-        return convertStringToHTMLElement(calendarIcon, `[${this._referenceAttributeName}="icon"]`);
+        return convertStringToHTMLElement(calendarIcon, '[ref="icon"]');
       }
     }
     return this.component.suffix;
@@ -172,15 +169,13 @@ export default class Input extends Multivalue {
       else {
         this.addClass(element, 'text-danger');
       }
-      this.setContent(element, this.t(`typeRemaining`, {
-        remaining: remaining,
-        type: type
+      this.setContent(element, this.t(`{{ remaining }} ${type} remaining.`, {
+        remaining: remaining
       }));
     }
     else {
-      this.setContent(element, this.t(`typeCount`, {
-        count: count,
-        type: type
+      this.setContent(element, this.t(`{{ count }} ${type}`, {
+        count: count
       }));
     }
   }
@@ -248,7 +243,7 @@ export default class Input extends Multivalue {
       element.widget.destroy();
     }
     // Attach the widget.
-    let promise = Promise.resolve();
+    let promise = NativePromise.resolve();
     element.widget = this.createWidget(index);
     if (element.widget) {
       promise = element.widget.attach(element);
@@ -269,30 +264,7 @@ export default class Input extends Multivalue {
         if (key === 13) {
           event.preventDefault();
           event.stopPropagation();
-          let submitButton = null;
-          if (this.root?.everyComponent) {
-            this.root.everyComponent((component) => {
-              if (
-                component?.component.type === 'button' &&
-                component?.component.action === 'submit'
-              ) {
-                submitButton = component;
-                return false;
-              }
-            });
-          }
-          const options = {};
-          if (submitButton) {
-            options.instance = submitButton;
-            options.component = submitButton.component;
-            options.noValidate = this.component.state === 'draft';
-            options.state = this.component.state || 'submitted';
-            submitButton.loading = true;
-            this.emit('submitButton', options);
-          }
-          else {
-            this.emit('submitButton', options);
-          }
+          this.emit('submitButton');
         }
       });
     }
@@ -301,8 +273,8 @@ export default class Input extends Multivalue {
 
   /**
    * Creates an instance of a widget for this component.
-   * @param {number} index - The index of the widget.
-   * @returns {*} - The widget instance.
+   *
+   * @return {null}
    */
   createWidget(index) {
     // Return null if no widget is found.
@@ -333,23 +305,8 @@ export default class Input extends Multivalue {
     return widget;
   }
 
-  teardown() {
-    if (this.element && this.element.widget) {
-      this.element.widget.destroy();
-      delete this.element.widget;
-    }
-    if (this.refs && this.refs.input) {
-      for (let i = 0; i <= this.refs.input.length; i++) {
-        const widget = this.getWidget(i);
-        if (widget) {
-          widget.destroy();
-        }
-      }
-    }
-    super.teardown();
-  }
-
   detach() {
+    super.detach();
     if (this.refs && this.refs.input) {
       for (let i = 0; i <= this.refs.input.length; i++) {
         const widget = this.getWidget(i);
@@ -359,6 +316,38 @@ export default class Input extends Multivalue {
       }
     }
     this.refs.input = [];
-    super.detach();
+  }
+
+  addFocusBlurEvents(element) {
+    this.addEventListener(element, 'focus', () => {
+      if (this.root.focusedComponent !== this) {
+        if (this.root.pendingBlur) {
+          this.root.pendingBlur();
+        }
+
+        this.root.focusedComponent = this;
+
+        this.emit('focus', this);
+      }
+      else if (this.root.focusedComponent === this && this.root.pendingBlur) {
+        this.root.pendingBlur.cancel();
+        this.root.pendingBlur = null;
+      }
+    });
+    this.addEventListener(element, 'blur', () => {
+      this.root.pendingBlur = delay(() => {
+        this.emit('blur', this);
+        if (this.component.validateOn === 'blur') {
+          this.root.triggerChange({ fromBlur: true }, {
+            instance: this,
+            component: this.component,
+            value: this.dataValue,
+            flags: { fromBlur: true }
+          });
+        }
+        this.root.focusedComponent = null;
+        this.root.pendingBlur = null;
+      });
+    });
   }
 }

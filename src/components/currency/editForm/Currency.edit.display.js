@@ -16,10 +16,6 @@ export default [
     ignore: true
   },
   {
-    key: 'spellcheck',
-    ignore: true
-  },
-  {
     type: 'textfield',
     input: true,
     weight: 310,

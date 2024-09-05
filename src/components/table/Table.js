@@ -41,14 +41,9 @@ export default class TableComponent extends NestedComponent {
       group: 'layout',
       icon: 'table',
       weight: 40,
-      documentation: '/userguide/form-building/layout-components#table',
-      showPreview: false,
+      documentation: '/userguide/forms/layout-components#table',
       schema: TableComponent.schema()
     };
-  }
-
-  static savedValueTypes() {
-    return [];
   }
 
   get defaultSchema() {
@@ -184,7 +179,7 @@ export default class TableComponent extends NestedComponent {
     return superAttach;
   }
 
-  destroy(all = false) {
+  destroy(all) {
     super.destroy(all);
     delete this.table;
   }

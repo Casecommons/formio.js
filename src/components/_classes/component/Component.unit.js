@@ -5,8 +5,10 @@ import sinon from 'sinon';
 import Component from './Component';
 import Webform from '../../../Webform';
 import Harness from '../../../../test/harness';
-import { comp1, comp4, comp3, comp5, comp6, comp7 } from './fixtures';
+import { comp1 } from './fixtures';
 import _merge from 'lodash/merge';
+import comp3 from './fixtures/comp3';
+import comp4 from './fixtures/comp4';
 
 describe('Component', () => {
   it('Should create a Component', (done) => {
@@ -257,156 +259,95 @@ describe('Component', () => {
       }).catch(done);
     });
   });
+});
 
-  it('Should return value for HTML mode', () => {
-    return Harness.testCreate(Component, comp1).then((component) => {
-      assert.equal(component.itemValueForHTMLMode(['option 1', 'option 2', 'option 3']), 'option 1, option 2, option 3');
-      assert.equal(component.itemValueForHTMLMode(['option 1', ['option 2', 'option 3']]), 'option 1, option 2, option 3');
-      assert.equal(component.itemValueForHTMLMode(['2020-03-18T15:00:00.000Z', '2020-03-31T09:05:00.000Z']), '2020-03-18T15:00:00.000Z, 2020-03-31T09:05:00.000Z');
-      assert.equal(component.itemValueForHTMLMode('test'), 'test');
+it('Should return value for HTML mode', () => {
+  return Harness.testCreate(Component, comp1).then((component) => {
+    assert.equal(component.itemValueForHTMLMode(['option 1', 'option 2', 'option 3']), 'option 1, option 2, option 3');
+    assert.equal(component.itemValueForHTMLMode(['option 1', ['option 2', 'option 3']]), 'option 1, option 2, option 3');
+    assert.equal(component.itemValueForHTMLMode(['2020-03-18T15:00:00.000Z', '2020-03-31T09:05:00.000Z']), '2020-03-18T15:00:00.000Z, 2020-03-31T09:05:00.000Z');
+    assert.equal(component.itemValueForHTMLMode('test'), 'test');
+  });
+});
+
+it('Should protect against change loops', function(done) {
+  const formElement = document.createElement('div');
+  const form = new Webform(formElement);
+  const formJson = {
+    components: [
+      {
+        key: 'textField',
+        label: 'Text Field',
+        type: 'textfield',
+        calculateValue: "value = value + '_calculated'",
+      },
+    ],
+  };
+
+  form.setForm(formJson).then(() => {
+    const textField = form.getComponent('textField');
+    const spy = sinon.spy(textField, 'calculateComponentValue');
+    form.onChange({ textField: 'test' });
+
+    setTimeout(() => {
+      expect(spy.calledOnce).to.be.true;
+
+      done();
+    }, 500);
+  })
+  .catch((err) => done(err));
+});
+
+it('Should mark as invalid only invalid fields in multiple components', function(done) {
+  const formElement = document.createElement('div');
+  const form = new Webform(formElement);
+  const formJson = {
+    components: [
+      {
+        label: 'Email',
+        tableView: true,
+        multiple: true,
+        validate: {
+          required: true
+        },
+        key: 'email',
+        type: 'email',
+        input: true
+      },
+    ],
+  };
+
+  form.setForm(formJson).then(() => {
+    return form.setSubmission({
+      data: {
+        email: [
+          'oleg@form.io',
+          'oleg@form',
+          '',
+        ]
+      }
     });
-  });
+  })
+  .then(() => {
+    setTimeout(() => {
+      const email = form.getComponent('email');
+      expect(email.refs.input[0].classList.contains('is-invalid')).to.be.false;
+      expect(email.refs.input[1].classList.contains('is-invalid')).to.be.true;
+      expect(email.refs.input[2].classList.contains('is-invalid')).to.be.true;
+      done();
+    }, 300);
+  })
+  .catch(done);
+});
 
-  it('Should protect against change loops', function(done) {
-    const formElement = document.createElement('div');
-    const form = new Webform(formElement);
-    const formJson = {
-      components: [
-        {
-          key: 'textField',
-          label: 'Text Field',
-          type: 'textfield',
-          calculateValue: "value = value + '_calculated'",
-        },
-      ],
-    };
-
-    form.setForm(formJson).then(() => {
-      const textField = form.getComponent('textField');
-      const spy = sinon.spy(textField, 'calculateComponentValue');
-      form.onChange({ textField: 'test' });
-
-      setTimeout(() => {
-        expect(spy.calledOnce).to.be.true;
-
-        done();
-      }, 500);
-    })
-    .catch((err) => done(err));
-  });
-
-  it('Should mark as invalid only invalid fields in multiple components', function(done) {
-    const formElement = document.createElement('div');
-    const form = new Webform(formElement);
-    const formJson = {
-      components: [
-        {
-          label: 'Email',
-          tableView: true,
-          multiple: true,
-          validate: {
-            required: true
-          },
-          key: 'email',
-          type: 'email',
-          input: true
-        },
-      ],
-    };
-
-    form.setForm(formJson).then(() => {
-      return form.setSubmission({
-        data: {
-          email: [
-            'oleg@form.io',
-            'oleg@form',
-            '',
-          ]
-        }
-      });
-    })
-    .then(() => {
-      setTimeout(() => {
-        const email = form.getComponent('email');
-        expect(email.refs.input[0].classList.contains('is-invalid')).to.be.false;
-        expect(email.refs.input[1].classList.contains('is-invalid')).to.be.true;
-        expect(email.refs.input[2].classList.contains('is-invalid')).to.be.true;
-        done();
-      }, 300);
-    })
+describe('shouldDisplayRedAsterisk', () => {
+  it('modalPreview template should have className "field-required" if component is required', done => {
+    Harness.testCreate(Component, _merge({}, comp4, {
+      validate: { required: true }
+    })).then(cmp => {
+      assert.equal(!!cmp.element.querySelector('.field-required'), true);
+      done();
+    }, done)
     .catch(done);
-  });
-
-  it('Should sanitize HTML even if options.pdf is set', (done) => {
-    const component = new Component({}, { pdf: true });
-    assert.equal(component.sanitize('<a href="javascript:console.log("untrusted")></a>'), '<a></a>');
-    done();
-  });
-
-  describe('shouldDisplayRedAsterisk', () => {
-    it('modalPreview template should have className "field-required" if component is required', done => {
-      Harness.testCreate(Component, _merge({}, comp4, {
-        validate: { required: true }
-      })).then(cmp => {
-        assert.equal(!!cmp.element.querySelector('.field-required'), true);
-        done();
-      }, done)
-      .catch(done);
-    });
-  });
-
-  it('Should not execute code inside Tooltips/Description', (done) => {
-    const formElement = document.createElement('div');
-    const form = new Webform(formElement);
-
-    form.setForm(comp5).then(() => {
-      setTimeout(() => {
-        assert.equal(window._ee, undefined, 'Should not execute code inside Tooltips/Description');
-        done();
-      }, 200);
-    })
-      .catch(done);
-  });
-
-  it('Should reset value to default value if default value is given', (done) => {
-    Formio.createForm(document.createElement('div'), comp6, {}).then((form) => {
-      const inputValue = (value, component) => {
-        const input = component.refs.input?.[0] || component.refs.selectContainer;
-        const inputEvent = new Event('input');
-        input.value = value;
-        input.dispatchEvent(inputEvent);
-      };
-      const textfield = form.getComponent('textField');
-      const number = form.getComponent('number');
-      const select = form.getComponent('select');
-      inputValue('hello', textfield);
-      inputValue('321', number);
-      inputValue('b', select);
-      setTimeout(()=>{
-        form.resetValue();
-        assert.equal(textfield.refs.input[0].value, 'test');
-        assert.equal(number.refs.input[0].value, '123');
-        assert.equal(select.refs.selectContainer.value, 'a');
-        done();
-      },200);
-    }).catch(done);
-  });
-
-  it('Should set the state of hidden permanently if a logic event action sets the hidden state', (done) => {
-    Formio.createForm(document.createElement('div'), comp7, {}).then((form) => {
-      const showButtonComponent = form.getComponent('show');
-      const textFieldComponent = form.getComponent('textField1');
-      const panelComponent = form.getComponent('panel');
-      showButtonComponent.refs.button.click();
-      setTimeout(()=>{
-        textFieldComponent.refs.input[0].value = "test"
-        textFieldComponent.refs.input[0].dispatchEvent(new Event('input'));
-        setTimeout(()=>{
-          assert.equal(panelComponent.component.hidden, false);
-          assert.equal(panelComponent.visible, true);
-          done();
-        },400);
-      },200);
-    });
   });
 });

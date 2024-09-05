@@ -1,6 +1,6 @@
 import Harness from '../../../test/harness';
 import EmailComponent from './Email';
-import { Formio } from './../../Formio';
+import Formio from './../../Formio';
 import assert from 'power-assert';
 import _ from 'lodash';
 
@@ -51,11 +51,11 @@ describe('Email Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert(component.errors.length > 0, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -108,11 +108,11 @@ describe('Email Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert(component.errors.length > 0, 'Should contain error');
-              assert.equal(component.errors[0].message.trim(), error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message.trim(), error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -189,11 +189,11 @@ describe('Email Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert(component.errors.length > 0, 'Should contain error');
-              assert.equal(component.errors[0].message.trim(), error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message.trim(), error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }

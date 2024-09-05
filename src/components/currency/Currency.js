@@ -1,4 +1,4 @@
-import { createNumberMask } from '@formio/text-mask-addons';
+import { createNumberMask } from 'text-mask-addons';
 import { maskInput } from '@formio/vanilla-text-mask';
 import _ from 'lodash';
 import { getCurrencyAffixes } from '../../utils/utils';
@@ -18,7 +18,7 @@ export default class CurrencyComponent extends NumberComponent {
       title: 'Currency',
       group: 'advanced',
       icon: 'usd',
-      documentation: '/userguide/form-building/advanced-components#currency',
+      documentation: '/userguide/forms/form-components#currency',
       weight: 70,
       schema: CurrencyComponent.schema()
     };
@@ -34,7 +34,8 @@ export default class CurrencyComponent extends NumberComponent {
 
   /**
    * Creates the number mask for currency numbers.
-   * @returns {*} - The result of the createNumberMask function
+   *
+   * @return {*}
    */
   createNumberMask() {
     const decimalLimit = _.get(this.component, 'decimalLimit', 2);
@@ -140,9 +141,6 @@ export default class CurrencyComponent extends NumberComponent {
 
     // eslint-disable-next-line eqeqeq
     if (value || value == '0') {
-      if (Array.isArray(value)) {
-        return value.map((val) => this.addZerosAndFormatValue(super.getValueAsString(val, options))).join(', ');
-      }
       return this.addZerosAndFormatValue(stringValue);
     }
 

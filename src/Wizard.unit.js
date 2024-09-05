@@ -1,7 +1,6 @@
-/* eslint-disable no-unused-vars */
 import Harness from '../test/harness';
 import Wizard from './Wizard';
-import { Formio } from './Formio';
+import Formio from './Formio';
 import assert from 'power-assert';
 import _ from 'lodash';
 import wizardCond from '../test/forms/wizardConditionalPages';
@@ -20,12 +19,11 @@ import formWithSignature from '../test/forms/formWithSignature';
 import wizardWithTooltip from '../test/forms/wizardWithTooltip';
 import wizardForHtmlModeTest from '../test/forms/wizardForHtmlRenderModeTest';
 import wizardTestForm from '../test/forms/wizardTestForm';
-import wizardTestFormWithNestedComponents from '../test/forms/wizardTestFormWithNestedComponents';
 import formWithNestedWizard from '../test/forms/formWIthNestedWizard';
 import wizardWithDataGridAndEditGrid from '../test/forms/wizardWithDataGridAndEditGrid';
 import customWizard from '../test/forms/customWizard';
-//import wizardChildForm from '../test/forms/wizardChildForm';
-//import wizardParentForm from '../test/forms/wizardParentForm';
+import wizardChildForm from '../test/forms/wizardChildForm';
+import wizardParentForm from '../test/forms/wizardParentForm';
 import wizardWithComponentsWithSameApi from '../test/forms/wizardWithComponentsWithSameApi';
 import wizardWithConditionallyVisiblePage from '../test/forms/conditionallyVisiblePage';
 import wizardWithPanel from '../test/forms/wizardWithPanel';
@@ -36,131 +34,8 @@ import wizardNavigateOrSaveOnEnter from '../test/forms/wizardNavigateOrSaveOnEnt
 import wizardWithFieldsValidationChild from '../test/forms/wizardWithFieldsValidationChild';
 import wizardWithFieldsValidationParent from '../test/forms/wizardWithFieldsValidationParent';
 import nestedConditionalWizard from '../test/forms/nestedConditionalWizard';
-import wizardWithPrefixComps from '../test/forms/wizardWithPrefixComps';
-import wizardPermission from '../test/forms/wizardPermission';
-import formWithFormController from '../test/forms/formWithFormController';
-import { fastCloneDeep } from './utils/utils';
-import formsWithAllowOverride from '../test/forms/formsWithAllowOverrideComps';
-import WizardWithCheckboxes from '../test/forms/wizardWithCheckboxes';
 
-// eslint-disable-next-line max-statements
 describe('Wizard tests', () => {
-  it('Should recalculate values for components with "allow override" after wizard is canceled', function(done) {
-    const formElement = document.createElement('div');
-    Formio.createForm(formElement, formsWithAllowOverride.wizard).then((form) => {
-      const calculatedValues = {
-        number: 123,
-        textField: 'test data',
-        textArea: 'test data',
-        radio: 'one'
-      };
-
-      const overridenValues = {
-        number: 1233333,
-        textField: 'test data3333',
-        textArea: 'test data3333',
-        radio: 'two'
-      };
-
-      const number = form.getComponent('number');
-      const textArea = form.getComponent('textArea');
-      const radio = form.getComponent('radio');
-      const textField = form.getComponent('textField');
-      const radioTrigger = form.getComponent('radio1');
-
-      assert.equal(number.dataValue, number.emptyValue);
-      assert.equal(textField.dataValue, textField.emptyValue);
-      assert.equal(textArea.dataValue, textArea.emptyValue);
-      assert.equal(radio.dataValue, calculatedValues.radio);
-
-      radioTrigger.setValue('a');
-      setTimeout(() => {
-        // check if values are calculated correctly
-        assert.equal(number.dataValue, calculatedValues.number);
-        assert.equal(textField.dataValue, calculatedValues.textField);
-        assert.equal(textArea.dataValue, calculatedValues.textArea);
-        assert.equal(radio.dataValue, calculatedValues.radio);
-
-        // override calculated values
-        const numberInput = number.refs.input[0];
-        const textFieldInput = textField.refs.input[0];
-        const textAreaInput = textArea.refs.input[0];
-        const radioInput =radio.refs.input[1];
-
-        numberInput.value = overridenValues.number;
-        textFieldInput.value = overridenValues.textField;
-        textAreaInput.value = overridenValues.textArea;
-        radioInput.checked = true;
-        const inputEvent = new Event('input');
-        const clickEvent = new Event('click');
-
-        numberInput.dispatchEvent(inputEvent);
-        textFieldInput.dispatchEvent(inputEvent);
-        textAreaInput.dispatchEvent(inputEvent);
-        radioInput.dispatchEvent(clickEvent);
-
-        setTimeout(() => {
-          // check if values are overriden
-          assert.equal(number.getValue(), overridenValues.number);
-          assert.equal(textField.dataValue, overridenValues.textField);
-          assert.equal(textArea.dataValue, overridenValues.textArea);
-          assert.equal(radio.dataValue, overridenValues.radio);
-          // reset form
-          form.cancel(true);
-
-          setTimeout(() => {
-            // make sure that values are reset
-            assert.equal(number.dataValue, number.emptyValue);
-            assert.equal(textField.dataValue, textField.emptyValue);
-            assert.equal(textArea.dataValue, textArea.emptyValue);
-            assert.equal(radio.dataValue, calculatedValues.radio);
-
-            radioTrigger.setValue('a');
-            setTimeout(() => {
-              // check if values are recalculated correctly
-              assert.equal(number.dataValue, calculatedValues.number);
-              assert.equal(textField.dataValue, calculatedValues.textField);
-              assert.equal(textArea.dataValue, calculatedValues.textArea);
-              assert.equal(radio.dataValue, calculatedValues.radio);
-              document.body.innerHTML = '';
-              done();
-            }, 300);
-          }, 300);
-        }, 300);
-      }, 400);
-    }).catch((err) => done(err));
-  });
-
-  it('Should execute form controller', function(done) {
-    const form = fastCloneDeep(formWithFormController);
-    form.display = 'wizard';
-    Formio.createForm(form).then((form) => {
-      setTimeout(() => {
-        const textField = form.getComponent('textField');
-
-        assert.equal(textField.getValue(), 'Hello World');
-        assert.equal(textField.disabled, true);
-        assert.equal(form.components[0].disabled, true);
-
-        done();
-      }, 300);
-    }).catch((err) => done(err));
-  });
-
-  it('Should check correctly Permissions and disabled sumbit button', (done) => {
-    const formElement = document.createElement('div');
-    const wizard = new Wizard(formElement);
-
-    wizard.setForm(wizardPermission).then(() => {
-      wizard.form.disableWizardSubmit = true;
-      wizard.redraw();
-      const btn = wizard.element.querySelector('.btn-wizard-nav-submit');
-      assert.equal(btn.disabled, true);
-
-      done();
-    }).catch(err => done(err));
-  });
-
   it('Should correctly reset values', function(done) {
     const formElement = document.createElement('div');
     const wizard = new Wizard(formElement);
@@ -189,7 +64,7 @@ describe('Wizard tests', () => {
         elem.dispatchEvent(event);
       };
 
-      checkComponents(0, 1, [], [{}]);
+      checkComponents(0, 1, [], [{ number: '' }]);
 
       const submission = {
           data: {
@@ -205,7 +80,7 @@ describe('Wizard tests', () => {
         wizard.cancel(true);
 
         setTimeout(() => {
-          checkComponents(0, 1, [], [{}]);
+          checkComponents(0, 1, [], [{ number: '' }]);
           event('click', editGrid.refs['editgrid-editGrid-addRow'][0]);
 
           setTimeout(() => {
@@ -255,6 +130,90 @@ describe('Wizard tests', () => {
     })
     .catch((err) => done(err));
   }).timeout(2500);
+
+  it('Should render nested wizard, navigate pages and trigger validation', function(done) {
+    const formElement = document.createElement('div');
+    const wizard = new Wizard(formElement);
+    const nestedWizard = _.cloneDeep(wizardTestForm.form);
+
+    wizard.setForm(formWithNestedWizard).then(() => {
+      const nestedFormComp = wizard.getComponent('formNested');
+
+      nestedFormComp.loadSubForm = ()=> {
+        nestedFormComp.formObj = nestedWizard;
+        nestedFormComp.subFormLoading = false;
+        return new Promise((resolve) => resolve(nestedWizard));
+      };
+
+      nestedFormComp.createSubForm();
+      setTimeout(() => {
+      const clickWizardBtn = (pathPart, clickError) => {
+        const btn = _.get(wizard.refs, clickError ? pathPart : `${wizard.wizardKey}-${pathPart}`);
+        const clickEvent = new Event('click');
+        btn.dispatchEvent(clickEvent);
+      };
+
+      const checkPage = (pageNumber) => {
+        assert.equal(wizard.page, pageNumber, `Should open wizard page ${pageNumber + 1}`);
+      };
+
+      checkPage(0);
+      assert.equal(wizard.pages.length, 5, 'Should have 5 pages');
+      assert.equal(wizard.allPages.length, 5, 'Should have 5 pages');
+      assert.equal(wizard.refs[`${wizard.wizardKey}-link`].length, 5, 'Should contain refs to breadcrumbs of parent and nested wizard');
+
+      clickWizardBtn('next');
+
+      setTimeout(() => {
+        checkPage(1);
+        assert.equal(wizard.refs[`${wizard.wizardKey}`].querySelectorAll('[ref="component"]').length, 1, 'Should not load nested wizard component of the page of nested form if this page contains other components');
+        clickWizardBtn('next');
+
+        setTimeout(() => {
+          checkPage(2);
+          assert.equal(wizard.refs[`${wizard.wizardKey}`].querySelectorAll('[ref="component"]').length, 4, 'Should render nested wizard first page components');
+
+          clickWizardBtn('next');
+
+          setTimeout(() => {
+            checkPage(2);
+            assert.equal(wizard.errors.length, 1, 'Should show validation error for required field');
+            assert.equal(wizard.refs.errorRef.length, 1, 'Should show alert with error');
+            clickWizardBtn('previous');
+
+            setTimeout(() => {
+              checkPage(1);
+              assert.equal(wizard.errors.length, 0, 'Should not have validation errors');
+
+              clickWizardBtn('link[4]');
+
+              setTimeout(() => {
+                checkPage(4);
+                assert.equal(!!wizard.refs[`${wizard.wizardKey}-submit`], true, 'Should have submit btn on the last page');
+                clickWizardBtn('submit');
+
+                setTimeout(() => {
+                  checkPage(4);
+                  assert.equal(wizard.errors.length, 3, 'Should trigger validation errors on submit');
+                  assert.equal(wizard.refs.errorRef.length, 3, 'Should show alert with error on submit');
+                  wizard.getComponent('select').setValue('value1');
+                  setTimeout(() => {
+                    checkPage(4);
+                    assert.equal(wizard.errors.length, 2, 'Should remove validation error if a component is valid');
+                    assert.equal(wizard.refs.errorRef.length, 2, 'Should remove error from alert if component is valid');
+
+                    done();
+                  }, 500);
+                }, 500);
+              }, 200);
+            }, 200);
+          }, 200);
+        }, 200);
+      }, 200);
+    }, 200);
+    })
+    .catch((err) => done(err));
+  }).timeout(3000);
 
   it('Should set submission in wizard with nested wizard', function(done) {
     const formElement = document.createElement('div');
@@ -388,7 +347,7 @@ describe('Wizard tests', () => {
     }, 300);
     })
     .catch((err) => done(err));
-  }).timeout(6000);
+  }).timeout(3000);
 
   it('Should render values in HTML render mode', function(done) {
     const formElement = document.createElement('div');
@@ -446,63 +405,13 @@ describe('Wizard tests', () => {
     .catch((err) => done(err));
   });
 
-  it('Should render values for prefix Components', function(done) {
-    const formElement = document.createElement('div');
-    const wizard = new Wizard(formElement, {
-      readOnly: true,
-    });
-    const form = _.cloneDeep(wizardWithPrefixComps.form);
-
-    wizard.setForm(form).then(() => {
-      const clickWizardBtn = (pathPart, clickError) => {
-        const btn = _.get(wizard.refs, clickError ? pathPart : `${wizard.wizardKey}-${pathPart}`);
-        const clickEvent = new Event('click');
-        btn.dispatchEvent(clickEvent);
-      };
-
-      const checkPage = (pageNumber) => {
-        assert.equal(wizard.page, pageNumber, `Should open wizard page ${pageNumber + 1}`);
-      };
-
-      const checkValues = () => {
-        wizard.refs[`wizard-${wizard.id}`].querySelectorAll('input').forEach((element, i)=> {
-          switch (i) {
-            case 0:
-              assert.equal(element.value, 'prefix', 'Should render value');
-              break;
-            case 1:
-              assert.equal(element.value, `page${wizard.page+1}`, 'Should render value');
-              break;
-            case 2:
-              assert.equal(element.value, 'suffix', 'Should render value');
-              break;
-          }
-        });
-      };
-      wizard.submission = _.cloneDeep(wizardWithPrefixComps.submission);
-
-      setTimeout(() => {
-        checkPage(0);
-        checkValues();
-        clickWizardBtn('next');
-
-        setTimeout(() => {
-          checkPage(1);
-          checkValues();
-          done();
-        }, 200);
-      }, 200);
-    })
-    .catch((err) => done(err));
-  });
-
   it('Should redirect to the correct page from the Error list', function(done) {
     const formElement = document.createElement('div');
     const wizard = new Wizard(formElement, {
       renderMode: 'html'
     });
 
-    wizard.setForm(wizardWithComponentsWithSameApi).then(() => {
+    wizard.setForm(wizardWithComponentsWithSameApi, ).then(() => {
       const clickWizardBtn = (pathPart) => {
         const [btnKey] = Object.keys(wizard.refs).filter((key) => key.indexOf(pathPart) !== -1);
         const btn = _.get(wizard.refs, btnKey);
@@ -651,36 +560,6 @@ describe('Wizard tests', () => {
             done();
           }, 200);
         }, 200);
-      }, 200);
-    })
-    .catch((err) => done(err));
-  });
-
-  it('Should NOT navigate to next page if it contains invalid nested component', function(done) {
-    const formElement = document.createElement('div');
-    const wizard = new Wizard(formElement);
-    const form = _.cloneDeep(wizardTestFormWithNestedComponents.form);
-
-    wizard.setForm(form).then(() => {
-      const checkPage = (pageNumber) => {
-        assert.equal(wizard.page, pageNumber, `Should open wizard page ${pageNumber + 1}`);
-      };
-      checkPage(0);
-      wizard.submission = {
-        data: {
-          outerContainer: {
-            firstComponent: 'c',
-            secondComponent: 'q',
-          }
-        }
-      };
-      wizard.nextPage();
-      setTimeout(() => {
-        const errors = wizard.errors;
-        checkPage(0);
-        assert(errors.length > 0, 'Must err before next page');
-        assert.equal(errors[0].message, 'Required Component is required');
-        done();
       }, 200);
     })
     .catch((err) => done(err));
@@ -866,6 +745,7 @@ describe('Wizard tests', () => {
         urlEnd: 'submission',
         state: 'draft',
         data: {
+          number: '',
           textArea1: '',
           textField: 'test'
         },
@@ -1022,8 +902,8 @@ describe('Wizard tests', () => {
       const checkInvalidComp = (compKey, highLight) => {
         const comp = wizard.getComponent(compKey);
 
-        assert.deepEqual(comp.errors.length, 1, `${compKey}: should have error`);
-        assert.deepEqual(comp.errors[0].message, `${comp.component.label} is required`, `${compKey}: should have correct required validation message`);
+        assert.deepEqual(!!comp.error, true, `${compKey}: should have error`);
+        assert.deepEqual(comp.error.message, `${comp.component.label} is required`, `${compKey}: should have correct required validation message`);
         assert.deepEqual(comp.pristine, false, `${compKey}: should set pristine to false`);
         assert.deepEqual(comp.element.classList.contains(`${highLight ? 'formio-error-wrapper' : 'has-error'}`), true, `${compKey}: should set error class`);
         assert.deepEqual(comp.refs.messageContainer.querySelector('.error').textContent.trim(), `${comp.component.label} is required`, `${compKey}: should display error message`);
@@ -1034,12 +914,12 @@ describe('Wizard tests', () => {
 
       setTimeout(() => {
         checkPage(2);
-        assert.equal(wizard.visibleErrors.length, 0, 'Should not have validation errors');
+        assert.equal(wizard.errors.length, 0, 'Should not have validation errors');
 
         clickWizardBtn('submit');
 
         setTimeout(() => {
-          assert.equal(wizard.visibleErrors.length, 3, 'Should have validation errors');
+          assert.equal(wizard.errors.length, 3, 'Should have validation errors');
           assert.equal(wizard.refs.errorRef.length, wizard.errors.length, 'Should show alert with validation errors');
           assert.equal(!!wizard.element.querySelector('.alert-danger'), true, 'Should have alert with validation errors');
           checkInvalidComp('select', true);
@@ -1048,7 +928,7 @@ describe('Wizard tests', () => {
           setTimeout(() => {
             checkPage(0);
 
-            assert.equal(wizard.visibleErrors.length, 3, 'Should have page validation error');
+            assert.equal(wizard.errors.length, 1, 'Should have page validation error');
             assert.equal(wizard.refs.errorRef.length, 3, 'Should keep alert with validation errors');
             checkInvalidComp('textField');
             clickWizardBtn('errorRef[1]', true);
@@ -1056,38 +936,38 @@ describe('Wizard tests', () => {
             setTimeout(() => {
               checkPage(1);
 
-              assert.equal(wizard.visibleErrors.length, 3, 'Should have page validation error');
+              assert.equal(wizard.errors.length, 1, 'Should have page validation error');
               assert.equal(wizard.refs.errorRef.length, 3, 'Should keep alert with validation errors');
               checkInvalidComp('checkbox');
               wizard.getComponent('checkbox').setValue(true);
 
               setTimeout(() => {
                 checkPage(1);
-                assert.equal(wizard.visibleErrors.length, 2, 'Should not have page validation error');
+                assert.equal(wizard.errors.length, 0, 'Should not have page validation error');
                 assert.equal(wizard.refs.errorRef.length, 2, 'Should keep alert with validation errors');
                 clickWizardBtn('errorRef[1]', true);
 
                 setTimeout(() => {
                   checkPage(2);
 
-                  assert.equal(wizard.visibleErrors.length, 2, 'Should have wizard validation errors');
+                  assert.equal(wizard.errors.length, 2, 'Should have wizard validation errors');
                   assert.equal(wizard.refs.errorRef.length, 2, 'Should keep alert with validation errors');
                   wizard.getComponent('select').setValue('value1');
 
                   setTimeout(() => {
-                    assert.equal(wizard.visibleErrors.length, 1, 'Should have wizard validation error');
+                    assert.equal(wizard.errors.length, 1, 'Should have wizard validation error');
                     assert.equal(wizard.refs.errorRef.length, 1, 'Should keep alert with validation errors');
                     clickWizardBtn('errorRef[0]', true);
 
                     setTimeout(() => {
                       checkPage(0);
 
-                      assert.equal(wizard.visibleErrors.length, 1, 'Should have page validation error');
+                      assert.equal(wizard.errors.length, 1, 'Should have page validation error');
                       assert.equal(wizard.refs.errorRef.length, 1, 'Should keep alert with validation errors');
                       wizard.getComponent('textField').setValue('valid');
 
                       setTimeout(() => {
-                        assert.equal(wizard.visibleErrors.length, 0, 'Should not have page validation error');
+                        assert.equal(wizard.errors.length, 0, 'Should not have page validation error');
                         assert.equal(!!wizard.element.querySelector('.alert-danger'), false, 'Should not have alert with validation errors');
                         clickWizardBtn('link[2]');
 
@@ -1167,8 +1047,7 @@ describe('Wizard tests', () => {
 
                 setTimeout(() => {
                   checkPage(2);
-                  assert.equal(wizard.errors.length, 1, 'Should have validation error');
-                  assert.equal(wizard.visibleErrors.length, 0, 'Should not have visible validation error');
+                  assert.equal(wizard.errors.length, 0, 'Should not have validation error');
                   clickNavigationBtn('link[0]');
 
                   setTimeout(() => {
@@ -1189,25 +1068,6 @@ describe('Wizard tests', () => {
       }, 50);
     })
     .catch((err) => done(err));
-  });
-
-  it('Should stay on current page when changing language', function(done) {
-    const formElement = document.createElement('div');
-    const wizard = new Wizard(formElement, { language: 'en' });
-    wizard.setForm(wizardTestForm.form).then(() => {
-      const checkPage = (page) => {
-        assert.equal(wizard.page, page, `Page ${page + 1} should be the current page`);
-      };
-
-      Harness.clickElement(wizard, wizard.refs[`${wizard.wizardKey}-link`][2]);
-      checkPage(2);
-
-      wizard.language = 'es';
-      setTimeout(() => {
-        checkPage(2);
-        done();
-      }, 50);
-    });
   });
 
   it('Should correctly set values in HTML render mode', function(done) {
@@ -1239,7 +1099,7 @@ describe('Wizard tests', () => {
     .catch((err) => done(err));
   });
 
-it('Should show tooltip for wizard pages', function(done) {
+  it('Should show tooltip for wizard pages', function(done) {
     const formElement = document.createElement('div');
     const wizardWithPageTooltip = new Wizard(formElement);
 
@@ -1255,11 +1115,11 @@ it('Should show tooltip for wizard pages', function(done) {
       pageTooltipIcon.dispatchEvent(clickEvent);
 
       setTimeout(() => {
-        const tooltipText = wizardWithPageTooltip.element.querySelector('.tippy-content').textContent;
+        const tooltipText = wizardWithPageTooltip.element.querySelector('.tooltip-inner').textContent;
         assert.equal(tooltipText, wizardWithPageTooltip.currentPanel.tooltip);
 
         done();
-      }, 300);
+      }, 250);
     })
     .catch((err) => done(err));
   });
@@ -1488,23 +1348,23 @@ it('Should show tooltip for wizard pages', function(done) {
           c: '',
           textField: ''
         }
-      }, [{
-        component: wizardForm.currentPage.getComponent('a').component,
-        message: 'a must have at least 4 characters.'
-      }], function() {
-        Harness.clickElement(wizardForm, wizardForm.refs[`${wizardForm.wizardKey}-link`][2]);
-        assert.equal(wizardForm.page, 2);
+      },
+        [{
+          component: 'a',
+          message: 'a must have at least 4 characters.'
+        }], done);
+      Harness.clickElement(wizardForm, wizardForm.refs[`${wizardForm.wizardKey}-link`][2]);
+      assert.equal(wizardForm.page, 2);
+      setTimeout(() => {
+        Harness.clickElement(wizardForm, wizardForm.refs[`${wizardForm.wizardKey}-link`][0]);
+        assert.equal(wizardForm.page, 0);
         setTimeout(() => {
-          Harness.clickElement(wizardForm, wizardForm.refs[`${wizardForm.wizardKey}-link`][0]);
-          assert.equal(wizardForm.page, 0);
-          setTimeout(() => {
-            const aInput = wizardForm.currentPage.getComponent('a');
-            assert.equal(aInput.errors.length, 1);
-            assert.equal(aInput.errors[0].message, 'a must have at least 4 characters.');
-            done();
-          }, 100);
+          const aInput = wizardForm.currentPage.getComponent('a');
+          assert.equal(aInput.errors.length, 1);
+          assert.equal(aInput.errors[0].message, 'a must have at least 4 characters.');
+          done();
         }, 100);
-      });
+      }, 100);
     })
       .catch((err) => done(err));
   });
@@ -1567,12 +1427,12 @@ it('Should show tooltip for wizard pages', function(done) {
 
     const form = await Formio.createForm(wizardCond, {});
 
-    // form.validator.config = {
-    //   db: {},
-    //   token: '',
-    //   form: wizardCond,
-    //   submission: submission
-    // };
+    form.validator.config = {
+      db: {},
+      token: '',
+      form: wizardCond,
+      submission: submission
+    };
 
     // Set the submission data
     form.data = submission.data;
@@ -1649,64 +1509,64 @@ it('Should show tooltip for wizard pages', function(done) {
       })
       .catch(done);
   });
-  // BUG - uncomment once fixed (ticket FIO-6043)
-  // it('Should render all pages as a part of wizard pagination', (done) => {
-  //   const formElement = document.createElement('div');
-  //   const wizard = new Wizard(formElement);
-  //   const childForm = _.cloneDeep(wizardChildForm);
-  //   const clickEvent = new Event('click');
 
-  //   wizard.setForm(wizardParentForm).then(() => {
-  //     assert.equal(wizard.components.length, 2);
-  //     assert.equal(wizard.allPages.length, 2);
-  //     assert.equal(wizard.allPages[1].component.title, 'Page 3');
+  it('Should render all pages as a part of wizard pagination', (done) => {
+    const formElement = document.createElement('div');
+    const wizard = new Wizard(formElement);
+    const childForm = _.cloneDeep(wizardChildForm);
+    const clickEvent = new Event('click');
 
-  //     const radioComp = wizard.getComponent('radio1');
+    wizard.setForm(wizardParentForm).then(() => {
+      assert.equal(wizard.components.length, 2);
+      assert.equal(wizard.allPages.length, 2);
+      assert.equal(wizard.allPages[1].component.title, 'Page 3');
 
-  //     radioComp.setValue('yes');
-  //     wizard.render();
+      const radioComp = wizard.getComponent('radio1');
 
-  //     setTimeout(() => {
-  //       const nestedFormComp = wizard.getComponent('formNested');
-  //       nestedFormComp.loadSubForm = () => {
-  //       nestedFormComp.formObj = childForm;
-  //       nestedFormComp.subFormLoading = false;
+      radioComp.setValue('yes');
+      wizard.render();
 
-  //         return new Promise((resolve) => resolve(childForm));
-  //       };
-  //       nestedFormComp.createSubForm();
+      setTimeout(() => {
+        const nestedFormComp = wizard.getComponent('formNested');
+        nestedFormComp.loadSubForm = () => {
+        nestedFormComp.formObj = childForm;
+        nestedFormComp.subFormLoading = false;
 
-  //       setTimeout(() => {
-  //         assert.equal(wizard.components.length, 3);
-  //         assert.equal(wizard.allPages.length, 4);
-  //         assert.equal(wizard.allPages[1].component.title, 'Child Page 1');
+          return new Promise((resolve) => resolve(childForm));
+        };
+        nestedFormComp.createSubForm();
 
-  //         const checboxComp = wizard.getComponent('checkbox');
+        setTimeout(() => {
+          assert.equal(wizard.components.length, 3);
+          assert.equal(wizard.allPages.length, 4);
+          assert.equal(wizard.allPages[1].component.title, 'Child Page 1');
 
-  //         checboxComp.setValue(true);
-  //         wizard.render();
+          const checboxComp = wizard.getComponent('checkbox');
 
-  //         setTimeout(() => {
-  //           assert.equal(wizard.components.length, 3);
-  //           assert.equal(wizard.allPages.length, 5);
-  //           assert.equal(wizard.allPages[1].component.title, 'Page 2');
-  //           assert.equal(wizard.element.querySelector('input[name="data[textFieldNearForm]"]'), null);
+          checboxComp.setValue(true);
+          wizard.render();
 
-  //           const nextPageBtn = wizard.refs[`${wizard.wizardKey}-next`];
+          setTimeout(() => {
+            assert.equal(wizard.components.length, 3);
+            assert.equal(wizard.allPages.length, 5);
+            assert.equal(wizard.allPages[1].component.title, 'Page 2');
+            assert.equal(wizard.element.querySelector('input[name="data[textFieldNearForm]"]'), null);
 
-  //           nextPageBtn.dispatchEvent(clickEvent);
+            const nextPageBtn = wizard.refs[`${wizard.wizardKey}-next`];
 
-  //           setTimeout(() => {
-  //             assert.equal(wizard.component.title, 'Page 2');
-  //             assert.ok(wizard.element.querySelector('input[name="data[textFieldNearForm]"]'));
+            nextPageBtn.dispatchEvent(clickEvent);
 
-  //             done();
-  //           }, 200);
-  //         }, 200);
-  //       }, 200);
-  //     }, 200);
-  //   }).catch(done);
-  // });
+            setTimeout(() => {
+              assert.equal(wizard.component.title, 'Page 2');
+              assert.ok(wizard.element.querySelector('input[name="data[textFieldNearForm]"]'));
+
+              done();
+            }, 200);
+          }, 200);
+        }, 200);
+      }, 200);
+    }).catch(done);
+  });
 
   describe('Conditional pages', () => {
     it('Should remove page from header when it is hidden', (done) => {
@@ -1915,44 +1775,52 @@ it('Should show tooltip for wizard pages', function(done) {
     .catch((err) => done(err));
   });
 
-  it('Should retain previous checkbox checked property when navigating to another page (checked)', (done) => {
-    const wizard = new Wizard(document.createElement('div'));
-    wizard.setForm(WizardWithCheckboxes).then(()=> {
-      const clickNavigationBtn = (pathPart) => {
-        const btn = _.get(wizard.refs, `${wizard.wizardKey}-${pathPart}`);
-        const clickEvent = new Event('click');
-        btn.dispatchEvent(clickEvent);
-      };
-      wizard.element.querySelector('input').click();
-      clickNavigationBtn('next');
-      setTimeout(()=>{
-        clickNavigationBtn('previous');
-        setTimeout(()=>{
-          assert.equal(wizard.element.querySelector('input').checked, true);
-          done();
-        },200);
-      },200);
-    });
-  });
+  it('Should proper validate nested wizard fields', (done) => {
+    const formElement = document.createElement('div');
+    const wizard = new Wizard(formElement);
+    const childForm = _.cloneDeep(wizardWithFieldsValidationChild);
+    const parentForm = _.cloneDeep(wizardWithFieldsValidationParent);
+    const clickEvent = new Event('click');
 
-  it('Should retain previous checkbox checked property when navigating to another page (unchecked)', (done) => {
-    const wizard = new Wizard(document.createElement('div'));
-    wizard.setForm(WizardWithCheckboxes).then(()=> {
-      const clickNavigationBtn = (pathPart) => {
-        const btn = _.get(wizard.refs, `${wizard.wizardKey}-${pathPart}`);
-        const clickEvent = new Event('click');
-        btn.dispatchEvent(clickEvent);
+    wizard.setForm(parentForm).then(() => {
+      const nestedFormComp = wizard.getComponent('formNested');
+      nestedFormComp.loadSubForm = () => {
+        nestedFormComp.formObj = childForm;
+        nestedFormComp.subFormLoading = false;
+        return new Promise((resolve) => resolve(childForm));
       };
-      wizard.element.querySelector('input').click();
-      wizard.element.querySelector('input').click();
-      clickNavigationBtn('next');
-      setTimeout(()=>{
-        clickNavigationBtn('previous');
-        setTimeout(()=>{
-          assert.equal(wizard.element.querySelector('input').checked, false);
-          done();
-        },200);
-      },200);
+      nestedFormComp.createSubForm();
+
+      setTimeout(() => {
+        const textField = wizard.getComponent('textField');
+        const testValidation = wizard.getComponent('testValidation');
+        textField.setValue('one');
+        testValidation.setValue('two');
+        wizard.render();
+
+        const checkPage = (pageNumber) => {
+          assert.equal(wizard.page, pageNumber);
+        };
+        const nextPageBtn = wizard.refs[`${wizard.wizardKey}-next`];
+
+        setTimeout(() => {
+          nextPageBtn.dispatchEvent(clickEvent);
+
+          setTimeout(() => {
+            checkPage(0);
+            assert.equal(wizard.errors.length, 1);
+            assert.equal(wizard.refs.errorRef.length, wizard.errors.length);
+            testValidation.setValue('one');
+            nextPageBtn.dispatchEvent(clickEvent);
+
+            setTimeout(() => {
+              checkPage(1);
+              assert.equal(wizard.errors.length, 0);
+              done();
+            }, 200);
+          }, 200);
+        }, 200);
+      }, 200);
     });
   });
 });

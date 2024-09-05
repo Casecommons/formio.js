@@ -1,7 +1,6 @@
 'use strict';
 
 import _ from 'lodash';
-import { componentValueTypes, getStringFromComponentPath } from '../../../utils/utils';
 
 import Component from '../component/Component';
 import NestedDataComponent from '../nesteddata/NestedDataComponent';
@@ -11,10 +10,6 @@ export default class NestedArrayComponent extends NestedDataComponent {
     return NestedDataComponent.schema({
       disableAddingRemovingRows: false
     }, ...extend);
-  }
-
-  static savedValueTypes() {
-    return [componentValueTypes.array];
   }
 
   componentContext(component) {
@@ -52,14 +47,14 @@ export default class NestedArrayComponent extends NestedDataComponent {
     row = row || this.data;
     this.checkAddButtonChanged();
 
-    return this.processRows('checkData', data, flags, Component.prototype.checkData.call(this, data, flags, row));
+    return this.checkRows('checkData', data, flags, Component.prototype.checkData.call(this, data, flags, row));
   }
 
-  processRows(method, data, opts, defaultValue, silentCheck) {
+  checkRows(method, data, opts, defaultValue, silentCheck) {
     return this.iteratableRows.reduce(
       (valid, row, rowIndex) => {
         if (!opts?.rowIndex || opts?.rowIndex === rowIndex) {
-          return this.processRow(method, data, opts, row.data, row.components, silentCheck) && valid;
+          return this.checkRow(method, data, opts, row.data, row.components, silentCheck) && valid;
         }
         else {
           return valid;
@@ -69,17 +64,7 @@ export default class NestedArrayComponent extends NestedDataComponent {
     );
   }
 
-  validate(data, flags = {}) {
-    data = data || this.data;
-    return this.validateComponents([this.component], data, flags);
-  }
-
-  checkRow(...args) {
-    console.log('Deprecation Warning: checkRow method has been replaced with processRow');
-    return this.processRow.call(this, ...args);
-  }
-
-  processRow(method, data, opts, row, components, silentCheck) {
+  checkRow(method, data, opts, row, components, silentCheck) {
     if (opts?.isolateRow) {
       silentCheck = true;
       opts.noRefresh = true;
@@ -112,15 +97,6 @@ export default class NestedArrayComponent extends NestedDataComponent {
   }
 
   getComponent(path, fn, originalPath) {
-    originalPath = originalPath || getStringFromComponentPath(path);
-    if (this.componentsMap.hasOwnProperty(originalPath)) {
-      if (fn) {
-        return fn(this.componentsMap[originalPath]);
-      }
-      else {
-        return this.componentsMap[originalPath];
-      }
-    }
     path = Array.isArray(path) ? path : [path];
     let key = path.shift();
     const remainingPath = path;
@@ -155,7 +131,7 @@ export default class NestedArrayComponent extends NestedDataComponent {
     return result;
   }
 
-  everyComponent(fn, rowIndex, options = {}) {
+  everyComponent(fn, rowIndex, options) {
     if (_.isObject(rowIndex)) {
       options = rowIndex;
       rowIndex = null;
@@ -226,7 +202,7 @@ export default class NestedArrayComponent extends NestedDataComponent {
   }
 
   getComponents(rowIndex) {
-    if (rowIndex !== undefined && rowIndex !== null) {
+    if (rowIndex !== undefined) {
       if (!this.iteratableRows[rowIndex]) {
         return [];
       }

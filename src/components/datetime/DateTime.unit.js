@@ -1,10 +1,9 @@
 import assert from 'power-assert';
 import Harness from '../../../test/harness';
 import DateTimeComponent from './DateTime';
-import { Formio } from './../../Formio';
+import Formio from './../../Formio';
 import _ from 'lodash';
 import 'flatpickr';
-import moment from 'moment';
 import {
   comp1,
   comp2,
@@ -12,12 +11,7 @@ import {
   comp5,
   comp6,
   comp7,
-  comp8,
- // comp9,
-  comp10,
-  comp11,
-  comp12,
-  comp13,
+  comp8
 } from './fixtures';
 
 describe('DateTime Component', () => {
@@ -47,27 +41,6 @@ describe('DateTime Component', () => {
       });
   });
 
-  it('Should not change manually entered value on blur when time is disabled', (done) => {
-    const form = _.cloneDeep(comp11);
-    const element = document.createElement('div');
-
-    Formio.createForm(element, form).then(form => {
-      const dateTime = form.getComponent('dateTime');
-      const blurEvent = new Event('blur');
-
-      const value = '01-02-2021';
-      const input = dateTime.element.querySelector('.input');
-      input.value = value;
-      input.dispatchEvent(blurEvent);
-
-      setTimeout(() => {
-        assert.equal(input.value, value);
-        document.innerHTML = '';
-        done();
-      }, 600);
-    }).catch(done);
-  });
-
   it('Should allow manual input', (done) => {
     const form = _.cloneDeep(comp3);
     const element = document.createElement('div');
@@ -86,28 +59,6 @@ describe('DateTime Component', () => {
         assert.equal(dateTime.getValue().startsWith(expectedValueStart), true);
         assert.equal(dateTime.dataValue.startsWith(expectedValueStart), true);
 
-        document.innerHTML = '';
-        done();
-      }, 300);
-    }).catch(done);
-  });
-
-  it('Should allow manual input for date with full month format (like MMMM)', (done) => {
-    const form = _.cloneDeep(comp12);
-    const element = document.createElement('div');
-
-    Formio.createForm(element, form).then(form => {
-      const dateTime = form.getComponent('dateTime');
-      const blurEvent = new Event('blur');
-
-      const value = 'April 22';
-      const expectedValue = 'April/22';
-      const input = dateTime.element.querySelector('.input');
-      input.value = value;
-      input.dispatchEvent(blurEvent);
-
-      setTimeout(() => {
-        assert.equal(input.value, expectedValue);
         document.innerHTML = '';
         done();
       }, 300);
@@ -648,113 +599,6 @@ describe('DateTime Component', () => {
       }, 300);
     }).catch(done);
   });
-
-  it('Should provide correct values with time after submission', (done) => {
-    const form = _.cloneDeep(comp10);
-    const element = document.createElement('div');
-
-    Formio.createForm(element, form).then(form => {
-      const dateTime = form.getComponent('dateTime');
-      const textField = form.getComponent('textField');
-
-      dateTime.setValue('2022-04-01T14:00:00.000');
-      textField.setValue('2022-04-01T14:00:00.000');
-
-      setTimeout(() => {
-        const submit = form.getComponent('submit');
-        const clickEvent = new Event('click');
-        const submitBtn = submit.refs.button;
-        submitBtn.dispatchEvent(clickEvent);
-
-        setTimeout(() => {
-          const input1 = dateTime.element.querySelector('.input');
-          const input2 = textField.element.querySelector('.input');
-
-          assert.equal(input1.value, '2022-04-01 02:00 PM');
-          assert.equal(input2.value, '2022-04-01 02:00 PM');
-          done();
-        }, 200);
-      }, 200);
-    }).catch(done);
-  });
-
-  it('Should add date to format if enableDate is true', (done) => {
-    const form = _.cloneDeep(comp3);
-    form.components[0].format = 'hh:mm a';
-    form.components[0].enableDate = true;
-    const element = document.createElement('div');
-
-    Formio.createForm(element, form, { attachMode: 'builder' }).then(form => {
-      const dateTime = form.getComponent('dateTime');
-      assert.equal(dateTime.component.format, 'yyyy-MM-dd hh:mm a');
-      done();
-    }).catch(done);
-  });
-
-  it('Should add time to format if enableTime is true', (done) => {
-    const form = _.cloneDeep(comp3);
-    form.components[0].format = 'yyyy-MM-dd';
-    form.components[0].enableTime = true;
-    const element = document.createElement('div');
-
-    Formio.createForm(element, form, { attachMode: 'builder' }).then(form => {
-      const dateTime = form.getComponent('dateTime');
-      assert.equal(dateTime.component.format, 'yyyy-MM-dd hh:mm a');
-      done();
-    }).catch(done);
-  });
-
-  it('Should refresh disabled dates when other fields values change', (done) => {
-    const form = _.cloneDeep(comp13);
-    const element = document.createElement('div');
-
-    Formio.createForm(element, form).then(form => {
-      const minDate = form.getComponent('minDate');
-      const maxDate = form.getComponent('maxDate');
-      minDate.setValue(moment().startOf('month').toISOString());
-      maxDate.setValue(moment().startOf('month').add(7, 'days').toISOString());
-
-      setTimeout(() => {
-        const inBetweenDate = form.getComponent('inBetweenDate');
-        const calendar = inBetweenDate.element.querySelector('.flatpickr-input').widget.calendar;
-        assert.equal(calendar.days.querySelectorAll('.flatpickr-disabled').length, 36, 'Only dates between selected' +
-          ' min and max dates should be enabled');
-
-        maxDate.setValue(moment().startOf('month').add(10, 'days').toISOString(), { modified: true });
-        setTimeout(() => {
-          assert.equal(calendar.days.querySelectorAll('.flatpickr-disabled').length, 33, 'Should recalculate' +
-            ' disabled dates after value change');
-
-          done();
-        }, 400);
-      }, 400);
-    }).catch(done);
-  });
-
-  // it('Should provide correct date in selected timezone after submission', (done) => {
-  //   const form = _.cloneDeep(comp9);
-  //   const element = document.createElement('div');
-
-  //   Formio.createForm(element, form, { readOnly: true }).then(form => {
-  //     const dateTime = form.getComponent('dateTime');
-  //     const dateTime1 = form.getComponent('dateTime1');
-
-  //     dateTime.setValue('2022-04-01T00:00:00.000');
-  //     dateTime1.setValue('2022-04-01T00:00:00.000');
-
-  //     document.body.addEventListener('zonesLoaded', () => {
-  //       setTimeout(() => {
-  //         const input = dateTime.element.querySelector('.input');
-  //         const input1 = dateTime1.element.querySelector('.input');
-
-  //         assert.equal(input.value, '2022-03-31 CDT');
-  //         assert.equal(input1.value, '2022-04-01 KST');
-  //         done();
-  //       }, 100);
-  //     });
-  //   }).catch(done);
-  // });
-
   // it('Test Shortcut Buttons', (done) => {
   //   // eslint-disable-next-line no-debugger
   //   debugger;

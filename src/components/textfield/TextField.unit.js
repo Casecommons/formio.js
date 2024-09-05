@@ -2,7 +2,7 @@ import assert from 'power-assert';
 import _ from 'lodash';
 import Harness from '../../../test/harness';
 import TextFieldComponent from './TextField';
-import { Formio } from './../../Formio';
+import Formio from './../../Formio';
 import 'flatpickr';
 
 import {
@@ -12,7 +12,6 @@ import {
   comp5,
   comp6,
   withDisplayAndInputMasks,
-  comp7,
 } from './fixtures';
 
 describe('TextField Component', () => {
@@ -38,48 +37,6 @@ describe('TextField Component', () => {
       Harness.testElements(component, '[disabled]', 2);
       done();
     });
-  });
-
-  it('Should check mask and value in the textfield component in the email template', (done) => {
-    const formJson =  {
-      components: [{
-          label: 'Text Field',
-          tableView: true,
-          allowMultipleMasks: true,
-          inputMasks: [{
-            label: 'mask1',
-            mask: 'mask1'
-          }],
-          key: 'textField',
-          type: 'textfield',
-          input: true
-       }]
-    };
-    const element = document.createElement('div');
-    Formio.createForm(element, formJson)
-      .then(form => {
-        form.setSubmission({
-          data: {
-            textField: {
-                value: 'mask1',
-                maskName: 'mask2'
-            }
-        },
-        });
-
-        const textField = form.getComponent('textField');
-
-        setTimeout(() => {
-          assert.equal(textField.dataValue.value, 'mask1', 'Should check value');
-          assert.equal(textField.dataValue.maskName, 'mask2', 'Should check maskName');
-          const toString = textField.getValueAsString(textField.dataValue, { email: true });
-          assert.ok(toString.includes('table'), 'Email template should render html table');
-          assert.ok(toString.includes(textField.dataValue.maskName), 'Email template should have Text Field mackName');
-          assert.ok(toString.includes(textField.dataValue.value), 'Email template should have Text Field value');
-          done();
-        }, 300);
-      })
-      .catch(done);
   });
 
   it('Should provide required validation', () => {
@@ -230,87 +187,6 @@ describe('TextField Component', () => {
     });
   });
 
-  it('Should provide number input mask only after blur event if applyMaskOn setting on blur', (done) => {
-    const form = _.cloneDeep(comp7);
-    const element = document.createElement('div');
-    form.components[0].inputMask = '99-99';
-    const value = 999;
-
-    Formio.createForm(element, form).then(form => {
-      const component = form.getComponent('textField');
-      const changed = component.setValue(value);
-
-      if (value) {
-        assert.equal(changed, true, 'Should set value');
-        assert.equal(component.getValue(), value);
-      }
-
-      setTimeout(() => {
-        const textFieldInput = component.element.querySelector('.form-control');
-        const event = new Event('blur');
-        textFieldInput.dispatchEvent(event);
-
-        setTimeout(() => {
-          assert.equal(component.getValue(), '99-9_');
-          done();
-        }, 200);
-      }, 200);
-    }).catch(done);
-  });
-
-  it('Should provide validation of number input mask only after blur event if applyMaskOn setting on blur', (done) => {
-    const form = _.cloneDeep(comp7);
-    const element = document.createElement('div');
-    form.components[0].inputMask = '99-99';
-    let value = 999;
-
-    Formio.createForm(element, form).then(form => {
-      const component = form.getComponent('textField');
-      const error = 'Text Field does not match the mask.';
-      const textFieldInput = component.element.querySelector('.form-control');
-      textFieldInput.value = value;
-      const event = new Event('change');
-      textFieldInput.dispatchEvent(event);
-      setTimeout(() => {
-        if (value) {
-          assert.equal(component.getValue(), value, 'Should set value');
-        }
-
-        setTimeout(() => {
-          assert.equal(component.errors.length, 0, 'Should not contain error');
-
-          const textFieldInput = component.element.querySelector('.form-control');
-          const event = new Event('blur');
-          textFieldInput.dispatchEvent(event);
-
-          setTimeout(() => {
-            assert.equal(component.errors.length, 1, 'Should contain error');
-            assert.equal(component.errors[0].message, error, 'Should contain error message');
-            assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
-            assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
-
-            value = 9999;
-            component.setValue(value);
-
-            setTimeout(() => {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
-              assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
-              assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
-
-              textFieldInput.dispatchEvent(event);
-
-              setTimeout(() => {
-                assert.equal(component.errors.length, 0, 'Should not contain error');
-                done();
-              }, 300);
-            }, 300);
-          }, 300);
-        }, 300);
-      }, 300);
-    }).catch(done);
-  });
-
   it('Should provide validation of number input mask after setting value', (done) => {
     const form = _.cloneDeep(comp6);
     form.components[0].inputMask = '99/99-99.99:99,99';
@@ -356,11 +232,11 @@ describe('TextField Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -413,7 +289,7 @@ describe('TextField Component', () => {
           input.dispatchEvent(inputEvent);
 
           setTimeout(() => {
-            assert.equal(component.errors.length, 0, 'Should not contain error');
+            assert.equal(!!component.error, false, 'Should not contain error');
             assert.equal(component.getValue(), '99/99-99.99:99,99', 'Should set and format value');
 
             if (_.isEqual(value, lastValue)) {
@@ -427,64 +303,6 @@ describe('TextField Component', () => {
     testFormatting(values, values[values.length-1]);
   });
 
-  it('Should allow dynamic syntax for input mask', (done) => {
-    const form = _.cloneDeep(comp6);
-    form.components[0].inputMask = 'aa-9{1,3}/9[99]';
-
-    const validValues = [
-      '',
-      'bB-77/555',
-      'bc-789/8',
-      'De-7/8',
-      'tr-81/888'
-    ];
-
-    const invalidValues = [
-      '123',
-      '12-hh/789',
-      'dd-/893',
-      'he-538/',
-      'e1-77/790'
-    ];
-
-    const testValidity = (values, valid, lastValue) => {
-      _.each(values, (value) => {
-        const element = document.createElement('div');
-
-        Formio.createForm(element, form).then(form => {
-          form.setPristine(false);
-
-          const component = form.getComponent('textField');
-          const changed = component.setValue(value);
-          const error = 'Text Field does not match the mask.';
-
-          if (value) {
-            assert.equal(changed, true, 'Should set value');
-          }
-
-          setTimeout(() => {
-            if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
-            }
-            else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
-              assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
-              assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
-            }
-
-            if (_.isEqual(value, lastValue)) {
-              done();
-            }
-          }, 300);
-        }).catch(done);
-      });
-    };
-
-    testValidity(validValues, true);
-    testValidity(invalidValues, false, invalidValues[invalidValues.length-1]);
-  });
-
   it('Should provide validation for alphabetic input mask after setting value', (done) => {
     const form = _.cloneDeep(comp6);
     form.components[0].inputMask = 'a/A/a-a:a.a,aa';
@@ -492,7 +310,7 @@ describe('TextField Component', () => {
     const validValues = [
       '',
       'b/V/r-y:d.d,as',
-      'b/B/r-y:d.d,as',
+      'b/b/r-y:d.d,as',
     ];
 
     const invalidValues = [
@@ -525,11 +343,11 @@ describe('TextField Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -574,8 +392,8 @@ describe('TextField Component', () => {
           input.dispatchEvent(inputEvent);
 
           setTimeout(() => {
-            assert.equal(component.errors.length, 0, 'Should not contain error');
-            assert.equal(component.getValue().toLowerCase(), 's/s/s-s:s.s,ss', 'Should set and format value');
+            assert.equal(!!component.error, false, 'Should not contain error');
+            assert.equal(component.getValue(), 's/s/s-s:s.s,ss', 'Should set and format value');
 
             if (_.isEqual(value, lastValue)) {
               done();
@@ -627,11 +445,11 @@ describe('TextField Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -676,7 +494,7 @@ describe('TextField Component', () => {
           input.dispatchEvent(inputEvent);
 
           setTimeout(() => {
-            assert.equal(component.errors.length, 0, 'Should not contain error');
+            assert.equal(!!component.error, false, 'Should not contain error');
             assert.equal(component.getValue(), value.expected, 'Should set and format value');
 
             if (_.isEqual(value.value, lastValue)) {
@@ -700,10 +518,10 @@ describe('TextField Component', () => {
       '46/34-yy',
       'ye/56-op',
       'We/56-op',
-      'te/56-Dp',
     ];
 
     const invalidValues = [
+      'te/56-Dp',
       'te/E6-pp',
       'tdddde/E6-pp',
       'te/E6',
@@ -730,11 +548,11 @@ describe('TextField Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -757,7 +575,7 @@ describe('TextField Component', () => {
 
     const values = [
       { value:'S67gf-+f34cfd', expected: 'S6/73-cf' },
-      { value:'56DDDfdsf23,DDdsf', expected: '56/23-DD' },
+      { value:'56DDDfdsf23,DDdsf', expected: '56/23-ds' },
       { value:'--fs344d.g234df', expected: 'fs/34-dg' },
       { value:'000000000g234df', expected: '00/00-gd' },
     ];
@@ -776,7 +594,7 @@ describe('TextField Component', () => {
           input.dispatchEvent(inputEvent);
 
           setTimeout(() => {
-            assert.equal(component.errors.length, 0, 'Should not contain error');
+            assert.equal(!!component.error, false, 'Should not contain error');
             assert.equal(component.getValue(), value.expected, 'Should set and format value');
 
             if (_.isEqual(value.value, lastValue)) {
@@ -790,7 +608,7 @@ describe('TextField Component', () => {
     testFormatting(values, values[values.length-1].value);
   });
 
-  it('Should allow multiple masks', async () => {
+  it('Should allow multiple masks', (done) => {
     const form = _.cloneDeep(comp6);
     const tf = form.components[0];
     tf.allowMultipleMasks = true;
@@ -806,43 +624,48 @@ describe('TextField Component', () => {
       { index: 2, mask: 'any', valueValid:['Dv/33'], valueInvalid: ['4/4'] },
     ];
 
-    const testMask = async (mask, valid) => {
+    const testMask = (mask, valid, lastValue) => {
       const values = valid ? mask.valueValid : mask.valueInvalid;
-      for (let i = 0; i < values.length; i++) {
-        const value = values[i];
+
+      _.each(values, (value) => {
         const element = document.createElement('div');
-        const instance = await Formio.createForm(element, form);
-        instance.setPristine(false);
-        const component = instance.getComponent('textField');
-        const changed = component.setValue({ value: value, maskName: mask.mask });
-        const error = 'Text Field does not match the mask.';
-        if (value) {
-          assert.equal(changed, true, 'Should set value');
-        }
-        await new Promise((resolve) => {
+
+        Formio.createForm(element, form).then(form => {
+          form.setPristine(false);
+          const component = form.getComponent('textField');
+          const changed = component.setValue({ value: value, maskName: mask.mask });
+          const error = 'Text Field does not match the mask.';
+
+          if (value) {
+            assert.equal(changed, true, 'Should set value');
+          }
+
           setTimeout(() => {
             assert.equal(component.refs.select[0].options[mask.index].selected, true, 'Should select correct mask');
             assert.equal(component.getValue().maskName, mask.mask, 'Should apply correct mask');
+
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
-            resolve();
+
+            if (_.isEqual(value, lastValue)) {
+              done();
+            }
           }, 300);
-        });
-      }
+        }).catch(done);
+      });
     };
 
-    for (let i = 0; i < masks.length; i++) {
-      const mask = masks[i];
-      await testMask(mask, true);
-      await testMask(mask, false);
-    }
+    _.each(masks, (mask, index) => {
+      testMask(mask, true);
+      testMask(mask, false,  (index === masks.length - 1) ? mask.valueInvalid[mask.valueInvalid.length-1] : undefined);
+    });
   });
 
   it('Should provide validation of number input mask with low dash and placeholder char after setting value', (done) => {
@@ -871,7 +694,7 @@ describe('TextField Component', () => {
           const component = form.getComponent('textField');
           const input = component.refs.input[0];
 
-          assert.equal(input.inputmask.undoValue, '.._../..', 'Should set placeholder using the char setting');
+          assert.equal(input.placeholder, '.._../..', 'Should set placeholder using the char setting');
 
           const changed = component.setValue(value);
           const error = 'Text Field does not match the mask.';
@@ -882,11 +705,11 @@ describe('TextField Component', () => {
 
           setTimeout(() => {
             if (valid) {
-              assert.equal(component.errors.length, 0, 'Should not contain error');
+              assert.equal(!!component.error, false, 'Should not contain error');
             }
             else {
-              assert.equal(component.errors.length, 1, 'Should contain error');
-              assert.equal(component.errors[0].message, error, 'Should contain error message');
+              assert.equal(!!component.error, true, 'Should contain error');
+              assert.equal(component.error.message, error, 'Should contain error message');
               assert.equal(component.element.classList.contains('has-error'), true, 'Should contain error class');
               assert.equal(component.refs.messageContainer.textContent.trim(), error, 'Should show error');
             }
@@ -926,7 +749,7 @@ describe('TextField Component', () => {
           input.dispatchEvent(inputEvent);
 
           setTimeout(() => {
-            assert.equal(component.errors.length, 0, 'Should not contain error');
+            assert.equal(!!component.error, false, 'Should not contain error');
             assert.equal(component.getValue(), value.expected, 'Should set and format value');
 
             if (_.isEqual(value.value, lastValue)) {

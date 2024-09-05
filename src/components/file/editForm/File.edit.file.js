@@ -1,4 +1,4 @@
-import { Formio } from '../../../Formio';
+import { GlobalFormio as Formio } from '../../../Formio';
 import _ from 'lodash';
 
 export default [
@@ -20,46 +20,6 @@ export default [
         }));
       }
     }
-  },
-  {
-    type: 'checkbox',
-    input: true,
-    key: 'useMultipartUpload',
-    label: 'Use the S3 Multipart Upload API',
-    tooltip: "The <a href='https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html'>S3 Multipart Upload API</a> is designed to improve the upload experience for larger objects (> 5GB).",
-    conditional: {
-      json: { '===': [{ var: 'data.storage' }, 's3'] }
-    },
-  },
-  {
-    label: 'Multipart Upload',
-    tableView: false,
-    key: 'multipart',
-    type: 'container',
-    input: true,
-    components: [
-      {
-        label: 'Part Size (MB)',
-        applyMaskOn: 'change',
-        mask: false,
-        tableView: false,
-        delimiter: false,
-        requireDecimal: false,
-        inputFormat: 'plain',
-        truncateMultipleSpaces: false,
-        validate: {
-          min: 5,
-          max: 5000,
-        },
-        key: 'partSize',
-        type: 'number',
-        input: true,
-        defaultValue: 500,
-      },
-    ],
-    conditional: {
-      json: { '===': [{ var: 'data.useMultipartUpload' }, true] }
-    },
   },
   {
     type: 'textfield',
@@ -119,11 +79,8 @@ export default [
     input: true,
     weight: 15,
     placeholder: `{
-      "withCredentials": true,
-      "headers": {
-        "Authorization": "Basic <key>"
-      }
-    }`,
+  "withCredentials": true
+}`,
     conditional: {
       json: {
         '===': [{
@@ -185,7 +142,7 @@ export default [
     input: true,
     key: 'fileNameTemplate',
     label: 'File Name Template',
-    placeholder: '(optional) { {name} }-{ {guid} }',
+    placeholder: '(optional) { {name} }-{ {guid} }"',
     tooltip: 'Specify template for name of uploaded file(s). Regular template variables are available (`data`, `component`, `user`, `value`, `moment` etc.), also `fileName`, `guid` variables are available. `guid` part must be present, if not found in template, will be added at the end.',
     weight: 25
   },
@@ -247,30 +204,6 @@ export default [
     conditional: {
       json: { '==': [{ var: 'data.webcam' }, true] }
     }
-  },
-  {
-    type: 'radio',
-    input: true,
-    key: 'capture',
-    label: 'Enable device capture',
-    tooltip: 'This will allow a mobile device to open the camera or microphone directly in capture mode.',
-    optionsLabelPosition: 'right',
-    inline: true,
-    defaultValue: false,
-    values: [
-      {
-        label: 'Disabled',
-        value: 'false'
-      },
-      {
-        label: 'Environment (rear camera)',
-        value: 'environment'
-      },
-      {
-        label: 'User (front camera)',
-        value: 'user'
-      }
-    ]
   },
   {
     type: 'datagrid',

@@ -18,15 +18,10 @@ export default class FieldsetComponent extends NestedComponent {
       title: 'Field Set',
       icon: 'th-large',
       group: 'layout',
-      documentation: '/userguide/form-building/layout-components#field-set',
-      showPreview: false,
+      documentation: '/userguide/forms/layout-components#field-set',
       weight: 20,
       schema: FieldsetComponent.schema()
     };
-  }
-
-  static savedValueTypes() {
-    return [];
   }
 
   get defaultSchema() {
@@ -34,7 +29,7 @@ export default class FieldsetComponent extends NestedComponent {
   }
 
   get className() {
-    return `${this.transform('class', 'form-group')} ${super.className}`;
+    return `form-group ${super.className}`;
   }
 
   get templateName() {

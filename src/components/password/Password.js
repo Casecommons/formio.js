@@ -17,7 +17,7 @@ export default class PasswordComponent extends TextFieldComponent {
       title: 'Password',
       icon: 'asterisk',
       group: 'basic',
-      documentation: '/userguide/form-building/form-components#password',
+      documentation: '/userguide/forms/form-components#password',
       weight: 40,
       schema: PasswordComponent.schema()
     };
@@ -31,9 +31,5 @@ export default class PasswordComponent extends TextFieldComponent {
     const info = super.inputInfo;
     info.attr.type = 'password';
     return info;
-  }
-
-  get autocompleteDisableAttrName() {
-    return 'new-password';
   }
 }

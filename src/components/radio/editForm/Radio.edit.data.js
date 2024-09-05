@@ -7,23 +7,6 @@ export default [
     ignore: true,
   },
   {
-    key: 'dataSrc',
-    data: {
-      values: [
-        { label: 'Values', value: 'values' },
-        { label: 'URL', value: 'url' },
-      ],
-    },
-    'validate': {
-      'required': true
-    },
-    onChange(context) {
-      if (context && context.flags && context.flags && context.flags.modified) {
-        context.data.values = [{ label: '', value: '' }];
-      }
-    },
-  },
-  {
     type: 'datagrid',
     input: true,
     label: 'Values',
@@ -71,9 +54,6 @@ export default [
         },
       },
     ],
-    conditional: {
-      json: { '===': [{ var: 'data.dataSrc' }, 'values'] },
-    },
   },
   {
     type: 'select',
@@ -95,10 +75,4 @@ export default [
       ],
     },
   },
-  {
-    key: 'template',
-    conditional: {
-      json: { '===': [{ var: 'data.dataSrc' }, 'url'] },
-    },
-  }
 ];

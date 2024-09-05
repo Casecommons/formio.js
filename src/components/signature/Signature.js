@@ -1,7 +1,7 @@
 import SignaturePad from 'signature_pad';
+import _ResizeObserver from 'resize-observer-polyfill';
 import Input from '../_classes/input/Input';
 import _ from 'lodash';
-import { componentValueTypes, getComponentSavedTypes } from '../../utils/utils';
 
 export default class SignatureComponent extends Input {
   static schema(...extend) {
@@ -29,22 +29,6 @@ export default class SignatureComponent extends Input {
       documentation: '/developers/integrations/esign/esign-integrations#signature-component',
       schema: SignatureComponent.schema()
     };
-  }
-
-  static get serverConditionSettings() {
-    return SignatureComponent.conditionOperatorsSettings;
-  }
-
-  static get conditionOperatorsSettings() {
-    return {
-      ...super.conditionOperatorsSettings,
-      operators: ['isEmpty', 'isNotEmpty'],
-    };
-  }
-
-  static savedValueTypes(schema) {
-    schema = schema || {};
-    return getComponentSavedTypes(schema) || [componentValueTypes.string];
   }
 
   init() {
@@ -163,10 +147,9 @@ export default class SignatureComponent extends Input {
       this.scale = force ? scale : this.scale;
       this.currentWidth = this.refs.padBody.offsetWidth;
       const width = this.currentWidth * this.scale;
-      const height = this.ratio ? width / this.ratio : this.refs.padBody.offsetHeight * this.scale;
-      const maxHeight = this.ratio ? height : this.refs.padBody.offsetHeight * this.scale;
-
       this.refs.canvas.width = width;
+      const height = this.ratio ? width / this.ratio : this.refs.padBody.offsetHeight * this.scale;
+      const maxHeight = this.refs.padBody.offsetHeight * this.scale;
       this.refs.canvas.height = height > maxHeight ? maxHeight : height;
       this.refs.canvas.style.maxWidth = `${this.currentWidth * this.scale}px`;
       this.refs.canvas.style.maxHeight = `${maxHeight}px`;
@@ -197,9 +180,9 @@ export default class SignatureComponent extends Input {
   }
 
   getModalPreviewTemplate() {
-    return this.renderModalPreview({
+    return this.renderTemplate('modalPreview', {
       previewText: this.dataValue ?
-        `<img src=${this.dataValue} ${this._referenceAttributeName}='openModal' style="width: 100%;height: 100%;" />` :
+        `<img src=${this.dataValue} ref='openModal' style="width: 100%;height: 100%;" />` :
         this.t('Click to Sign')
     });
   }
@@ -233,7 +216,7 @@ export default class SignatureComponent extends Input {
         }
 
         if (!this.builderMode && !this.options.preview) {
-          this.observer = new ResizeObserver(() => {
+          this.observer = new _ResizeObserver(() => {
             this.checkSize();
           });
 
@@ -278,9 +261,6 @@ export default class SignatureComponent extends Input {
   }
 
   getValueAsString(value) {
-    if (_.isUndefined(value) && this.inDataTable) {
-      return '';
-    }
     return value ? 'Yes' : 'No';
   }
 

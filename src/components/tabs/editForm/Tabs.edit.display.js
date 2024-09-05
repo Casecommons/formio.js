@@ -32,24 +32,6 @@ export default [
     ignore: true
   },
   {
-    key: 'hideLabel',
-    ignore: true
-  },
-  {
-    weight: 0,
-    type: 'textfield',
-    input: true,
-    key: 'label',
-    label: 'Label',
-    placeholder: 'Field Label',
-    tooltip: 'The label for this field.',
-    validate: {
-      required: true
-    },
-    autofocus: true,
-    overrideEditForm: true
-  },
-  {
     key: 'components',
     type: 'datagrid',
     input: true,
@@ -80,9 +62,5 @@ export default [
     tooltip: 'Make this field display in vertical orientation.',
     key: 'verticalLayout',
     input: true
-  },
-  {
-    key: 'hideLabel',
-    ignore: true
   },
 ];

@@ -2,11 +2,6 @@ import Components from '../Components';
 import ContentEditDisplay from './editForm/Content.edit.display';
 import ContentEditLogic from './editForm/Content.edit.logic';
 
-/**
- * The Edit Form function.
- * @param {...any} extend - The components that extend the edit form.
- * @returns {import('@formio/core').Component[]} - The edit form components.
- */
 export default function(...extend) {
   const editForm = Components.baseEditForm([
     {
@@ -24,6 +19,10 @@ export default function(...extend) {
     {
       key: 'logic',
       components: ContentEditLogic,
+    },
+    {
+      key: 'addons',
+      ignore: true
     },
   ], ...extend);
   // Add content as full width above the settings.

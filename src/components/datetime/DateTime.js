@@ -1,8 +1,7 @@
 import _ from 'lodash';
 import moment from 'moment';
-import FormioUtils from '../../utils';
-import { componentValueTypes, getComponentSavedTypes } from '../../utils/utils';
 import Input from '../_classes/input/Input';
+import FormioUtils from '../../utils';
 
 export default class DateTimeComponent extends Input {
   static schema(...extend) {
@@ -48,33 +47,10 @@ export default class DateTimeComponent extends Input {
       title: 'Date / Time',
       group: 'advanced',
       icon: 'calendar',
-      documentation: '/userguide/form-building/advanced-components#date-and-time',
+      documentation: '/userguide/forms/form-components#date-time',
       weight: 40,
       schema: DateTimeComponent.schema()
     };
-  }
-
-  static get serverConditionSettings() {
-    return DateTimeComponent.conditionOperatorsSettings;
-  }
-
-  static get conditionOperatorsSettings() {
-    return {
-      ...super.conditionOperatorsSettings,
-      operators: ['isDateEqual', 'isNotDateEqual', 'isEmpty', 'isNotEmpty','dateLessThan', 'dateGreaterThan', 'dateLessThanOrEqual','dateGreaterThanOrEqual'],
-      valueComponent(classComp) {
-        return {
-          ...classComp,
-          type: 'datetime',
-        };
-      }
-    };
-  }
-
-  static savedValueTypes(schema) {
-    schema = schema || {};
-
-    return  getComponentSavedTypes(schema) || [componentValueTypes.date];
   }
 
   constructor(component, options, data) {
@@ -86,15 +62,8 @@ export default class DateTimeComponent extends Input {
     if (!this.component.enableDate) {
       this.component.format = this.component.format.replace(/yyyy-MM-dd /g, '');
     }
-    else if (this.component.enableDate && !/[yMd]/.test(this.component.format) && this.builderMode) {
-      this.component.format = `yyyy-MM-dd ${this.component.format}`;
-    }
-
     if (!this.component.enableTime) {
       this.component.format = this.component.format.replace(/ hh:mm a$/g, '');
-    }
-    else if (this.component.enableTime && !/[mhH]/.test(this.component.format) && this.builderMode) {
-      this.component.format = `${this.component.format} hh:mm a`;
     }
     else if (time24hr) {
       this.component.format = this.component.format.replace(/hh:mm a$/g, 'HH:mm');
@@ -120,6 +89,7 @@ export default class DateTimeComponent extends Input {
       type: 'calendar',
       timezone,
       displayInTimezone: _.get(this.component, 'displayInTimezone', 'viewer'),
+      submissionTimezone: this.submissionTimezone,
       locale: this.options.language,
       useLocaleSettings: _.get(this.component, 'useLocaleSettings', false),
       allowInput: _.get(this.component, 'allowInput', true),
@@ -140,6 +110,16 @@ export default class DateTimeComponent extends Input {
       ...customOptions,
     };
     /* eslint-enable camelcase */
+
+    // Add the validators date.
+    this.validators.push('date');
+  }
+
+  performInputMapping(input) {
+    if (input.widget && input.widget.settings) {
+      input.widget.settings.submissionTimezone = this.submissionTimezone;
+    }
+    return input;
   }
 
   get defaultSchema() {
@@ -196,19 +176,7 @@ export default class DateTimeComponent extends Input {
   }
 
   getValueAsString(value) {
-    let format = FormioUtils.convertFormatToMoment(this.component.format);
-    format += format.match(/z$/) ? '' : ' z';
-    const timezone = this.timezone;
-    if (value && !this.attached && timezone) {
-      if (Array.isArray(value) && this.component.multiple) {
-        return value.map(item => _.trim(FormioUtils.momentDate(item, format, timezone).format(format))).join(', ');
-      }
-      return _.trim(FormioUtils.momentDate(value, format, timezone).format(format));
-    }
-
-    if (Array.isArray(value) && this.component.multiple) {
-      return value.map(item => _.trim(moment(item).format(format))).join(', ');
-    }
-    return (value ? _.trim(moment(value).format(format)) : value) || '';
+    const format = FormioUtils.convertFormatToMoment(this.component.format);
+    return (value ? moment(value).format(format) : value) || '';
   }
 }

@@ -1,5 +1,6 @@
 import Component from '../_classes/component/Component';
 import _ from 'lodash';
+import NativePromise from 'native-promise-only';
 
 export default class ContentComponent extends Component {
   static schema(...extend) {
@@ -18,15 +19,10 @@ export default class ContentComponent extends Component {
       group: 'layout',
       icon: 'html5',
       preview: false,
-      showPreview: false,
-      documentation: '/userguide/form-building/layout-components#content',
+      documentation: '/userguide/forms/layout-components#content',
       weight: 5,
       schema: ContentComponent.schema()
     };
-  }
-
-  static savedValueTypes() {
-    return [];
   }
 
   get defaultSchema() {
@@ -35,7 +31,7 @@ export default class ContentComponent extends Component {
 
   get content() {
     if (this.builderMode) {
-      return this.component.html || 'Content';
+      return this.component.html;
     }
     const submission = _.get(this.root, 'submission', {});
     return this.component.html ? this.interpolate(this.component.html, {
@@ -55,7 +51,7 @@ export default class ContentComponent extends Component {
   }
 
   get dataReady() {
-    return this.root?.submissionReady || Promise.resolve();
+    return this.root?.submissionReady || NativePromise.resolve();
   }
 
   attach(element) {

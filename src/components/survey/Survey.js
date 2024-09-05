@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import Field from '../_classes/field/Field';
-import { boolValue, componentValueTypes, getComponentSavedTypes } from '../../utils/utils';
+import { boolValue } from '../../utils/utils';
 
 export default class SurveyComponent extends Field {
   static schema(...extend) {
@@ -19,24 +19,9 @@ export default class SurveyComponent extends Field {
       group: 'advanced',
       icon: 'list',
       weight: 110,
-      documentation: '/userguide/form-building/advanced-components#survey',
+      documentation: '/userguide/forms/form-components#survey',
       schema: SurveyComponent.schema()
     };
-  }
-
-  static get serverConditionSettings() {
-    return SurveyComponent.conditionOperatorsSettings;
-  }
-
-  static get conditionOperatorsSettings() {
-    return {
-      ...super.conditionOperatorsSettings,
-      operators: ['isEmpty', 'isNotEmpty'],
-    };
-  }
-
-  static savedValueTypes(schema) {
-    return getComponentSavedTypes(schema) || [componentValueTypes.object];
   }
 
   get defaultSchema() {
@@ -177,17 +162,6 @@ export default class SurveyComponent extends Field {
         result += '</tbody></table>';
 
         return result;
-    }
-
-    if (_.isPlainObject(value)) {
-      const { values = [], questions = [] } = this.component;
-      return _.isEmpty(value)
-        ? ''
-        : _.map(value,(v, q) => {
-          const valueLabel = _.get(_.find(values, val => _.isEqual(val.value, v)), 'label', v);
-          const questionLabel = _.get(_.find(questions, quest => _.isEqual(quest.value, q)), 'label', q);
-          return `${questionLabel}: ${valueLabel}`;
-        }).join('; ');
     }
 
     return super.getValueAsString(value, options);

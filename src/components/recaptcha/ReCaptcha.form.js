@@ -1,12 +1,7 @@
 import Components from '../Components';
 import ReCaptchaEditDisplay from './editForm/ReCaptcha.edit.display';
 
-/**
- * The Edit Form function.
- * @param {...any} extend - The components that extend the edit form.
- * @returns {import('@formio/core').Component[]} - The edit form components.
- */
-export default function(...extend) {
+export default function() {
   return Components.baseEditForm([
     {
       key: 'display',
@@ -28,5 +23,9 @@ export default function(...extend) {
       key: 'logic',
       ignore: true
     },
-  ], ...extend);
+    {
+      key: 'addons',
+      ignore: true
+    },
+  ]);
 }

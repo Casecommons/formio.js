@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import Harness from '../../../test/harness';
 import DataGridComponent from './DataGrid';
-import { Formio } from '../../Formio';
+import Formio from '../../Formio';
 
 import {
   comp1,
@@ -12,18 +12,11 @@ import {
   comp3,
   comp4,
   comp5,
-  comp6,
-  comp7,
-  comp8,
-  comp9,
   withDefValue,
   withRowGroupsAndDefValue,
   modalWithRequiredFields,
   withConditionalFieldsAndValidations,
-  withLogic,
-  withCollapsibleRowGroups,
-  withAllowCalculateOverride,
-  twoWithAllowCalculatedOverride, withCheckboxes,
+  withLogic
 } from './fixtures';
 
 describe('DataGrid Component', () => {
@@ -111,17 +104,6 @@ describe('DataGrid Component', () => {
     });
   });
 
-  it('Should build a data grid component with formio-component-datagrid class property', done => {
-    Harness.testCreate(DataGridComponent, comp6).then((component) => {
-      const element = component.element.component.components[0].element;
-      setTimeout(() => {
-        assert.deepEqual(element.className.includes('formio-component-datagrid'), true);
-        done();
-      }, 200);
-    }, done)
-    .catch(done);
-  });
-
   it('Should not skip validation on input nested components', done => {
     Harness.testCreate(DataGridComponent, comp1)
       .then(cmp => {
@@ -167,6 +149,7 @@ describe('DataGrid Component', () => {
         {
           make: '',
           model: '',
+          year: ''
         }
       ]);
     });
@@ -198,8 +181,8 @@ describe('DataGrid Component', () => {
             { name: 'Alex', age: 1 },
             { name: 'Bob',  age: 2 },
             { name: 'Conny', age: 3 },
-            { name: '' },
-            { name: '' }
+            { name: '', age: '' },
+            { name: '', age: '' }
           ]);
           done();
         }, done)
@@ -225,27 +208,6 @@ describe('DataGrid Component', () => {
           expect(spyFunc.callCount).to.be.lessThan(4);
           done();
         }, 1500);
-      });
-  });
-
-  it('Should collapse group rows on group header click', (done) => {
-    Formio.createForm(document.createElement('div'), withCollapsibleRowGroups)
-      .then((form) => {
-        const groupHeadersRefName= 'datagrid-dataGrid-group-header';
-        const datagrid = form.getComponent('dataGrid');
-        assert.equal(datagrid.refs[groupHeadersRefName][0]?.classList?.contains('collapsed'), false);
-        assert.equal(datagrid.refs.chunks[0][0].classList?.contains('hidden'), false);
-        assert.equal(datagrid.refs.chunks[0][1].classList?.contains('hidden'), false);
-
-        const clickEvent = new Event('click');
-        datagrid.refs[groupHeadersRefName][0].dispatchEvent(clickEvent);
-        setTimeout(() => {
-          const collapedGroupRows = datagrid.refs.chunks[0] || [];
-          assert.equal(datagrid.refs[groupHeadersRefName][0]?.classList?.contains('collapsed'), true);
-          assert.equal(collapedGroupRows[0]?.classList?.contains('hidden'), true);
-          assert.equal(collapedGroupRows[1]?.classList?.contains('hidden'), true);
-          done();
-        }, 300);
       });
   });
 
@@ -399,30 +361,6 @@ describe('DataGrid Component', () => {
       })
       .catch(done);
   });
-
-  it('Should retain previous checkboxes checked property when add another is pressed (checked)', () => {
-    return Harness.testCreate(DataGridComponent, withCheckboxes).then((component) => {
-      component.childComponentsMap['dataGrid[0].radio'].element.querySelector('input').click();
-      component.addRow();
-      assert.equal(component.childComponentsMap['dataGrid[0].radio'].element.querySelector('input').checked, true);
-    });
-  });
-
-  it('Should retain previous checkboxes checked property when add another is pressed (unchecked)', () => {
-    return Harness.testCreate(DataGridComponent, withCheckboxes).then((component) => {
-      component.childComponentsMap['dataGrid[0].radio'].element.querySelector('input').click();
-      component.childComponentsMap['dataGrid[0].radio'].element.querySelector('input').click();
-      component.addRow();
-      assert.equal(component.childComponentsMap['dataGrid[0].radio'].element.querySelector('input').checked, false);
-    });
-  });
-
-  it('Should have dragula available when reorder flag is set to true', () => {
-    return Formio.createForm(document.createElement('div'), comp9, {}).then((form) => {
-      const dataGridComponent = form.getComponent('dataGrid');
-      assert(dataGridComponent.root.dragulaLib, 'could not find dragulaLib');
-    });
-  });
 });
 
 describe('DataGrid Panels', () => {
@@ -453,29 +391,6 @@ describe('DataGrid Panels', () => {
       ]);
     });
   });
-
-  it('Should have unique IDs inside data grid', () => {
-    return Harness.testCreate(DataGridComponent, comp7).then((component) => {
-      component.addRow();
-      const idArr = [];
-      component.components.forEach((row, i) => {
-        idArr[i] = row.element.component.components[0].id;
-      });
-      assert.equal(idArr[0] !== idArr[1], true);
-    });
-  });
-
-  it('Should hide label in header for Button component when hideLabel is true.', () => {
-    const formElement = document.createElement('div');
-    return Formio.createForm(formElement, {
-      display: 'form',
-      components: [comp8]
-    })
-    .then(() => {
-      assert.equal(formElement.getElementsByTagName('th')[0].textContent.trim(), '', 'Should hide a label');
-      assert.equal(formElement.getElementsByTagName('th')[1].textContent.trim(), 'Text Field', 'Should show a label');
-    });
-  });
 });
 
 describe('DataGrid disabling', () => {
@@ -494,18 +409,16 @@ describe('DataGrid modal', () => {
       components: [modalWithRequiredFields]
     })
     .then((form) => {
-      form.setSubmission({
-        data: {
-          dataGrid: [
-            {
-              textField: '',
-              textArea: ''
-            }
-          ]
-        }
-      }, {
-        dirty: true
-      });
+      const data = {
+        dataGrid: [
+          {
+            textField: '',
+            textArea: ''
+          }
+        ]
+      };
+
+      form.checkValidity(data, true, data);
 
       setTimeout(() => {
         Harness.testModalWrapperErrorClasses(form);
@@ -528,208 +441,5 @@ describe('DataGrid modal', () => {
       }, 200);
     })
     .catch(done);
-  });
-});
-
-describe('DataGrid calculated values', () => {
-  it('Should allow override calculated value', (done) => {
-    Formio.createForm(document.createElement('div'), withAllowCalculateOverride)
-      .then((form) => {
-        const select = form.getComponent('select');
-        const dataGrid = form.getComponent('dataGrid');
-
-        assert.deepEqual(dataGrid.getValue(),
-          [{
-            firstName: '',
-            lastName: ''
-          }]
-        );
-
-        select.setValue('a', { modified: true });
-        setTimeout(() => {
-          assert.deepEqual(dataGrid.getValue(),
-            [{
-              firstName: 'A f 1',
-              lastName: 'A l 1'
-            }]
-          );
-
-          select.setValue('b', { modified: true });
-          setTimeout(() => {
-            assert.deepEqual(dataGrid.getValue(),
-              [{
-                firstName: 'B f 1',
-                lastName: 'B l 1'
-              },
-              {
-                firstName: 'B f 2',
-                lastName: 'B l 2'
-              }]
-            );
-
-            const firstName = form.getComponent(['dataGrid', 0, 'firstName']);
-            firstName.setValue('first name', { modified: true });
-            select.setValue('c', { modified: true });
-            setTimeout(() => {
-              assert.deepEqual(dataGrid.getValue(),
-                [{
-                  firstName: 'first name',
-                  lastName: 'B l 1'
-                },
-                {
-                  firstName: 'B f 2',
-                  lastName: 'B l 2'
-                }]
-              );
-              done();
-            }, 300);
-          }, 300);
-        }, 300);
-      })
-      .catch(done);
-  });
-
-  it('Should not recalculate value after restoring to previous calculated value', (done) => {
-    Formio.createForm(document.createElement('div'), withAllowCalculateOverride)
-      .then((form) => {
-        const select = form.getComponent('select');
-        const dataGrid = form.getComponent('dataGrid');
-
-        assert.deepEqual(dataGrid.getValue(),
-          [{
-            firstName: '',
-            lastName: ''
-          }]
-        );
-
-        select.setValue('a', { modified: true });
-        setTimeout(() => {
-          assert.deepEqual(dataGrid.getValue(),
-            [{
-              firstName: 'A f 1',
-              lastName: 'A l 1'
-            }]
-          );
-
-          const firstName = form.getComponent(['dataGrid', 0, 'firstName']);
-          firstName.setValue('first name', { modified: true });
-          setTimeout(() => {
-            select.setValue('c', { modified: true });
-            setTimeout(() => {
-              assert.deepEqual(dataGrid.getValue(),
-                [{
-                  firstName: 'first name',
-                  lastName: 'A l 1'
-                }]
-              );
-
-              firstName.setValue('A f 1', { modified: true });
-              setTimeout(() => {
-                assert.equal(select.getValue(), 'c');
-                assert.deepEqual(dataGrid.getValue(),
-                  [{
-                    firstName: 'A f 1',
-                    lastName: 'A l 1'
-                  }]
-                );
-                done();
-              }, 300);
-            }, 300);
-          }, 300);
-        }, 300);
-      })
-      .catch(done);
-  });
-
-  it('Should calculate value for several DataGrid components', (done) => {
-    Formio.createForm(document.createElement('div'), twoWithAllowCalculatedOverride)
-      .then((form) => {
-        const select = form.getComponent('select');
-        const dataGrid = form.getComponent('dataGrid');
-        const dataGrid2 = form.getComponent('dataGrid2');
-
-        assert.deepEqual(dataGrid.getValue(),
-          [{
-            firstName: '',
-            lastName: ''
-          }]
-        );
-        assert.deepEqual(dataGrid2.getValue(),
-          [{
-            firstName: '',
-            lastName: ''
-          }]
-        );
-
-        select.setValue('a', { modified: true });
-        setTimeout(() => {
-          assert.deepEqual(dataGrid.getValue(),
-            [{
-              firstName: 'A f 1',
-              lastName: 'A l 1'
-            }]
-          );
-          assert.deepEqual(dataGrid2.getValue(),
-            [{
-              firstName: 'A f 1',
-              lastName: 'A l 1'
-            }]
-          );
-
-          select.setValue('b', { modified: true });
-          setTimeout(() => {
-            assert.deepEqual(dataGrid.getValue(),
-              [{
-                firstName: 'B f 1',
-                lastName: 'B l 1'
-              },
-              {
-                firstName: 'B f 2',
-                lastName: 'B l 2'
-              }]
-            );
-            assert.deepEqual(dataGrid2.getValue(),
-              [{
-                firstName: 'B f 1',
-                lastName: 'B l 1'
-              },
-              {
-                firstName: 'B f 2',
-                lastName: 'B l 2'
-              }]
-            );
-
-            const firstName = form.getComponent(['dataGrid', 0, 'firstName']);
-            firstName.setValue('first name', { modified: true });
-            const firstName2 = form.getComponent(['dataGrid2', 0, 'firstName']);
-            firstName2.setValue('first name 2', { modified: true });
-            select.setValue('c', { modified: true });
-            setTimeout(() => {
-              assert.deepEqual(dataGrid.getValue(),
-                [{
-                  firstName: 'first name',
-                  lastName: 'B l 1'
-                },
-                {
-                  firstName: 'B f 2',
-                  lastName: 'B l 2'
-                }]
-              );
-              assert.deepEqual(dataGrid2.getValue(),
-                [{
-                  firstName: 'first name 2',
-                  lastName: 'B l 1'
-                },
-                {
-                  firstName: 'B f 2',
-                  lastName: 'B l 2'
-                }]
-              );
-              done();
-            }, 300);
-          }, 300);
-        }, 300);
-      })
-      .catch(done);
   });
 });

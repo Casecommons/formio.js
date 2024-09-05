@@ -32,24 +32,6 @@ export default [
     ignore: true
   },
   {
-    key: 'hideLabel',
-    ignore: true
-  },
-  {
-    weight: 0,
-    type: 'textfield',
-    input: true,
-    key: 'label',
-    label: 'Label',
-    placeholder: 'Field Label',
-    tooltip: 'The label for this field.',
-    validate: {
-      required: true
-    },
-    autofocus: true,
-    overrideEditForm: true
-  },
-  {
     type: 'number',
     label: 'Number of Rows',
     key: 'numRows',
@@ -73,7 +55,7 @@ export default [
     key: 'cloneRows',
     input: true,
     weight: 3,
-    tooltip: 'Check this if you would like to \'clone\' the first row of components to all additional empty rows of the table.'
+    tooltip: 'Check this if you would like to "clone" the first row of components to all additional empty rows of the table.'
   },
   {
     type: 'select',
@@ -123,9 +105,5 @@ export default [
     input: true,
     tooltip: 'Condense the size of the table.',
     weight: 704
-  },
-  {
-    key: 'hideLabel',
-    ignore: true
   },
 ];

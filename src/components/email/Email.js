@@ -18,7 +18,7 @@ export default class EmailComponent extends TextFieldComponent {
       title: 'Email',
       group: 'advanced',
       icon: 'at',
-      documentation: '/userguide/form-building/advanced-components#email',
+      documentation: '/userguide/forms/form-components#email',
       weight: 10,
       schema: EmailComponent.schema()
     };
@@ -26,6 +26,7 @@ export default class EmailComponent extends TextFieldComponent {
 
   init() {
     super.init();
+    this.validators.push('email');
   }
 
   get defaultSchema() {

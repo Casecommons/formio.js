@@ -1,4 +1,5 @@
-import { Formio } from './Formio';
+import NativePromise from 'native-promise-only';
+import { GlobalFormio as Formio } from './Formio';
 import Webform from './Webform';
 import { fastCloneDeep, eachComponent } from './utils/utils';
 
@@ -46,7 +47,6 @@ export default class PDF extends Webform {
 
   render() {
     this.submitButton = this.addComponent({
-      disabled: this.form.disableWizardSubmit,
       input: true,
       type: 'button',
       action: 'submit',
@@ -66,22 +66,14 @@ export default class PDF extends Webform {
 
   redraw() {
     this.postMessage({ name: 'redraw' });
-    return this.builderMode ? Promise.resolve() : super.redraw();
-  }
-
-  destroy(all = false) {
-    if (this.iframeElement) {
-      delete this.iframeElement.formioComponent;
-      this.iframeElement.formioComponent = null;
-    }
-    super.destroy(all);
+    return this.builderMode ? NativePromise.resolve() : super.redraw();
   }
 
   rebuild() {
-    if (this.attached && this.builderMode && this.component.components) {
+    if (this.builderMode && this.component.components) {
       this.destroyComponents();
       this.addComponents();
-      return Promise.resolve();
+      return NativePromise.resolve();
     }
     this.postMessage({ name: 'redraw' });
     return super.rebuild();
@@ -109,7 +101,7 @@ export default class PDF extends Webform {
       this.submitButton.attachButton();
 
       // Reset the iframeReady promise.
-      this.iframeReady = new Promise((resolve, reject) => {
+      this.iframeReady = new NativePromise((resolve, reject) => {
         this.iframeReadyResolve = resolve;
         this.iframeReadyReject = reject;
       });
@@ -190,10 +182,11 @@ export default class PDF extends Webform {
 
   /**
    * Get the submission from the iframe.
-   * @returns {Promise<any>} - The submission from the iframe.
+   *
+   * @return {Promise<any>}
    */
   getSubmission() {
-    return new Promise((resolve) => {
+    return new NativePromise((resolve) => {
       this.once('iframe-submission', resolve);
       this.postMessage({ name: 'getSubmission' });
     });
@@ -201,8 +194,9 @@ export default class PDF extends Webform {
 
   /**
    * Ensure we have the submission from the iframe before we submit the form.
-   * @param {any} options - The options for submission.
-   * @returns {Promise<any>} - Resolves when the form is submitted.
+   *
+   * @param options
+   * @return {*}
    */
   submitForm(options = {}) {
     this.postMessage({ name: 'getErrors' });
@@ -254,9 +248,9 @@ export default class PDF extends Webform {
 
   /**
    * Set's the value of this form component.
-   * @param {import('@formio/core').Submission} submission - The submission JSON to set the value of this form.
-   * @param {any} flags - The flags to use when setting the submission.
-   * @returns {boolean} - If the value changed or not.
+   *
+   * @param submission
+   * @param flags
    */
   setValue(submission, flags = {}) {
     const changed = super.setValue(submission, flags);
@@ -303,7 +297,7 @@ export default class PDF extends Webform {
     const submitError = this.t('submitError');
     const isSubmitErrorShown = this.refs.buttonMessage?.textContent.trim() === submitError;
 
-    if (!helpBlock && error.length && !isSubmitErrorShown) {
+    if (!helpBlock && this.errors.length && !isSubmitErrorShown) {
       const p = this.ce('p', { class: 'help-block' });
 
       this.setContent(p, submitError);
@@ -317,7 +311,7 @@ export default class PDF extends Webform {
       this.appendTo(div, this.element);
     }
 
-    if (!error.length && helpBlock) {
+    if (!this.errors.length && helpBlock) {
       helpBlock.remove();
     }
 
