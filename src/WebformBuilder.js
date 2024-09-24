@@ -49,7 +49,6 @@ export default class WebformBuilder extends Component {
 
     this.sideBarScroll = _.get(this.options, 'sideBarScroll', true);
     this.sideBarScrollOffset = _.get(this.options, 'sideBarScrollOffset', 0);
-    this.dragDropEnabled = true;
 
     // Setup the builder options.
     this.builder = _.defaultsDeep({}, this.options.builder, this.defaultGroups);
@@ -225,7 +224,8 @@ export default class WebformBuilder extends Component {
       params: {
         type: 'resource',
         limit: 1000000,
-        select: '_id,title,name,components'
+        select: '_id,title,name,components',
+        'tags__ne': 'noBuilderResource'
       }
     };
     if (this.options && this.options.resourceTag) {
@@ -617,9 +617,7 @@ export default class WebformBuilder extends Component {
         }, 300)
       );
 
-      if (this.dragDropEnabled) {
-        this.initDragula();
-      }
+      this.initDragula();
 
       const drake = this.dragula;
 
@@ -629,7 +627,7 @@ export default class WebformBuilder extends Component {
           maxSpeed: 6,
           scrollWhenOutside: true,
           autoScroll: function() {
-              return this.down && drake && drake.dragging;
+              return this.down && drake.dragging;
           }
         });
 
@@ -729,9 +727,8 @@ export default class WebformBuilder extends Component {
   }
 
   updateDragAndDrop() {
-    if (this.dragDropEnabled) {
-      this.initDragula();
-    }
+    this.initDragula();
+
     if (this.refs.form) {
       return this.webform.attach(this.refs.form);
     }
@@ -993,6 +990,16 @@ export default class WebformBuilder extends Component {
       form.components = [];
     }
 
+    if (form && form.properties) {
+      this.options.properties = form.properties;
+    }
+
+    let keyboardActionsEnabled = _.get(this.options, 'keyboardBuilder', false) || this.options.properties?.keyboardBuilder;
+    if (typeof keyboardActionsEnabled === 'string') {
+      keyboardActionsEnabled = keyboardActionsEnabled === 'true';
+    }
+    this.keyboardActionsEnabled = keyboardActionsEnabled;
+
     const isShowSubmitButton = !this.options.noDefaultSubmitButton
       && !form.components.length;
 
@@ -1145,7 +1152,10 @@ export default class WebformBuilder extends Component {
           'calculateValue',
           'conditional',
           'customConditional',
-          'id'
+          'id',
+          'fields.day.required',
+          'fields.month.required',
+          'fields.year.required',
         ]));
         const parentComponent = defaultValueComponent.parent;
         let tabIndex = -1;
@@ -1314,6 +1324,68 @@ export default class WebformBuilder extends Component {
       isNew,
       originalComponentSchema
     );
+  }
+
+  attachEditComponentControls(component, parent, isNew, original, ComponentClass) {
+    const cancelButtons = this.componentEdit.querySelectorAll(`[${this._referenceAttributeName}="cancelButton"]`);
+    cancelButtons.forEach((cancelButton) => {
+      this.editForm.addEventListener(cancelButton, 'click', (event) => {
+        event.preventDefault();
+        this.editForm.detach();
+        this.emit('cancelComponent', component);
+        this.dialog.close();
+        this.highlightInvalidComponents();
+      });
+    });
+
+    const removeButtons = this.componentEdit.querySelectorAll(`[${this._referenceAttributeName}="removeButton"]`);
+    removeButtons.forEach((removeButton) => {
+      this.editForm.addEventListener(removeButton, 'click', (event) => {
+        event.preventDefault();
+        // Since we are already removing the component, don't trigger another remove.
+        this.saved = true;
+        this.editForm.detach();
+        this.removeComponent(component, parent, original);
+        this.dialog.close();
+        this.highlightInvalidComponents();
+      });
+    });
+
+    const saveButtons = this.componentEdit.querySelectorAll(`[${this._referenceAttributeName}="saveButton"]`);
+    saveButtons.forEach((saveButton) => {
+      this.editForm.addEventListener(saveButton, 'click', (event) => {
+        event.preventDefault();
+        const errors = this.editForm.validate(this.editForm.data, {
+          dirty: true
+        });
+        if (errors.length) {
+          this.editForm.setPristine(false);
+          this.editForm.showErrors(errors);
+          return false;
+        }
+        this.saved = true;
+        this.saveComponent(component, parent, isNew, original);
+      });
+    });
+
+    const previewButtons = this.componentEdit.querySelectorAll(`[${this._referenceAttributeName}="previewButton"]`);
+    previewButtons.forEach((previewButton) => {
+      this.editForm.addEventListener(previewButton, 'click', (event) => {
+        event.preventDefault();
+        this.showPreview = !this.showPreview;
+        this.editForm.detach();
+        this.setContent(this.componentEdit, this.renderTemplate('builderEditForm', {
+          componentInfo: ComponentClass.builderInfo,
+          editForm: this.editForm.render(),
+          preview: this.preview ? this.preview.render() : false,
+          showPreview: this.showPreview,
+          helplinks: this.helplinks,
+        }));
+        this.editForm.attach(this.componentEdit.querySelector(`[${this._referenceAttributeName}="editForm"]`));
+        this.updateComponent(this.editForm.submission.data ?? component);
+        this.attachEditComponentControls(component, parent, isNew, original, ComponentClass);
+      });
+    });
   }
 
   editComponent(component, parent, isNew, isJsonEdit, original, flags = {}) {

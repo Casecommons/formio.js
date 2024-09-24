@@ -29,8 +29,6 @@ export default class PDFBuilder extends WebformBuilder {
     else {
       super(options);
     }
-
-    this.dragDropEnabled = false;
   }
 
   get defaultGroups() {
@@ -451,7 +449,7 @@ export default class PDFBuilder extends WebformBuilder {
     }
 
     // Set a unique key for this component.
-    BuilderUtils.uniquify([this.webform._form], schema);
+    BuilderUtils.uniquify(this.webform._form?.components || [], schema);
     this.webform._form.components.push(schema);
 
     schema.overlay = {
