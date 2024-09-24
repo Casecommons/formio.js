@@ -629,7 +629,7 @@ export default class WebformBuilder extends Component {
           maxSpeed: 6,
           scrollWhenOutside: true,
           autoScroll: function() {
-              return this.down && drake.dragging;
+              return this.down && drake && drake.dragging;
           }
         });
 
