@@ -2088,12 +2088,6 @@ window.esdocSearchIndex = [
     "method"
   ],
   [
-    "src/pdfbuilder.js~pdfbuilder#dragdropenabled",
-    "class/src/PDFBuilder.js~PDFBuilder.html#instance-member-dragDropEnabled",
-    "src/PDFBuilder.js~PDFBuilder#dragDropEnabled",
-    "member"
-  ],
-  [
     "src/pdfbuilder.js~pdfbuilder#dropevent",
     "class/src/PDFBuilder.js~PDFBuilder.html#instance-member-dropEvent",
     "src/PDFBuilder.js~PDFBuilder#dropEvent",

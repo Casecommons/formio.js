@@ -29,8 +29,6 @@ export default class PDFBuilder extends WebformBuilder {
     else {
       super(options);
     }
-
-    this.dragDropEnabled = false;
   }
 
   get defaultGroups() {

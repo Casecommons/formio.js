@@ -49,7 +49,6 @@ export default class WebformBuilder extends Component {
 
     this.sideBarScroll = _.get(this.options, 'sideBarScroll', true);
     this.sideBarScrollOffset = _.get(this.options, 'sideBarScrollOffset', 0);
-    this.dragDropEnabled = true;
 
     // Setup the builder options.
     this.builder = _.defaultsDeep({}, this.options.builder, this.defaultGroups);
@@ -617,9 +616,7 @@ export default class WebformBuilder extends Component {
         }, 300)
       );
 
-      if (this.dragDropEnabled) {
-        this.initDragula();
-      }
+      this.initDragula();
 
       const drake = this.dragula;
 
@@ -729,9 +726,8 @@ export default class WebformBuilder extends Component {
   }
 
   updateDragAndDrop() {
-    if (this.dragDropEnabled) {
-      this.initDragula();
-    }
+    this.initDragula();
+
     if (this.refs.form) {
       return this.webform.attach(this.refs.form);
     }
