@@ -1,6 +1,6 @@
 {
-  "coverage": "6.73%",
-  "expectCount": 950,
+  "coverage": "6.51%",
+  "expectCount": 982,
   "actualCount": 64,
   "files": {
     "src/Embed.js": {
@@ -195,6 +195,44 @@
         22,
         24,
         28
+      ]
+    },
+    "src/PDFBuilder.js": {
+      "expectCount": 32,
+      "actualCount": 0,
+      "undocumentLines": [
+        11,
+        12,
+        33,
+        36,
+        67,
+        71,
+        75,
+        77,
+        81,
+        107,
+        134,
+        187,
+        201,
+        208,
+        245,
+        253,
+        267,
+        280,
+        297,
+        357,
+        372,
+        380,
+        399,
+        409,
+        412,
+        413,
+        418,
+        421,
+        423,
+        428,
+        484,
+        495
       ]
     },
     "src/WizardBuilder.js": {
